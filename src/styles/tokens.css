@@ -1,0 +1,76 @@
+/*
+ * Design tokens — CLAUDE.md §5.
+ * Dark ("ink at night") is the default. Light follows the OS preference only.
+ * Tailwind's palette is generated FROM these variables (see tailwind.config.ts) —
+ * nothing here is Tailwind-specific, and nothing in Tailwind redefines a color.
+ */
+
+@font-face {
+  font-family: 'InterVariable';
+  src: url('/fonts/InterVariable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --void: #10141c; /* app ground — deep blue-black, never pure black */
+  --panel: #171d28; /* raised surfaces, sheets */
+  --rule: #263041; /* hairlines, hour rules, dividers */
+  --paper: #e8e6e1; /* primary text — warm off-white */
+  --muted: #7c879b; /* secondary text, metadata, placeholders */
+  --signal: #e9a13b; /* THE accent — amber, time pressure only */
+  --sp: 4px; /* all spacing is a multiple of this */
+  --r: 10px; /* one radius, everywhere */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --void: #f7f5f0;
+    --panel: #ffffff;
+    --paper: #10141c;
+    --rule: #ddd9d0;
+    --muted: #6b7280;
+    /* --signal is unchanged in light mode */
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--void);
+  color: var(--paper);
+  font-family: 'InterVariable', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular numerals for anything measuring time or quantity. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
