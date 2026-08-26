@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light mode — mirrors src/styles/tokens.css §5. This file was missing from the
+         generated template (colorPrimary/colorPrimaryDark/colorAccent are referenced by
+         styles.xml but were never defined); adding it also lets us color the native
+         status bar and nav bar to match the app instead of leaving them default green. -->
+    <color name="colorPrimary">#FFFFFF</color>            <!-- panel -->
+    <color name="colorPrimaryDark">#F7F5F0</color>        <!-- void -->
+    <color name="colorAccent">#E9A13B</color>             <!-- signal -->
+    <color name="statusBarBackground">#F7F5F0</color>     <!-- void -->
+    <color name="navigationBarBackground">#FFFFFF</color> <!-- panel -->
+</resources>

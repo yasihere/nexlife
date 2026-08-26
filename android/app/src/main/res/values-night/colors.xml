@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark mode (default) — mirrors src/styles/tokens.css §5. Android picks this file
+         automatically when the system is in dark mode, the same signal the CSS
+         `prefers-color-scheme` query reacts to. -->
+    <color name="colorPrimary">#171D28</color>            <!-- panel -->
+    <color name="colorPrimaryDark">#10141C</color>        <!-- void -->
+    <color name="colorAccent">#E9A13B</color>             <!-- signal -->
+    <color name="statusBarBackground">#10141C</color>     <!-- void -->
+    <color name="navigationBarBackground">#171D28</color> <!-- panel -->
+</resources>

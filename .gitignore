@@ -3,4 +3,10 @@ dist
 dist-ssr
 *.local
 .DS_Store
-android
+*.keystore
+*.jks
+android/keystore.properties
+
+# The android/ platform project IS committed (it carries our native customizations —
+# styles.xml, colors.xml, signing config). Only its build output and secrets are ignored;
+# see android/.gitignore for those.

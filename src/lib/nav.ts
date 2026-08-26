@@ -1,7 +1,10 @@
 // Hand-rolled screen stack. No router library — see CLAUDE.md §3.
 // Zero React imports; screens subscribe via `subscribe` and read via `current`.
-// Phase 1 wires this to the Capacitor Android back button (pop on hardware back,
-// exit the app when the stack is empty).
+// Wired to the Capacitor Android back button below: pop on hardware back, exit the
+// app only when the stack is already at its root (Today).
+
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 export type Screen = 'today' | 'plan' | 'review' | 'settings' | 'triage';
 
@@ -46,4 +49,18 @@ export function atRoot(): boolean {
 export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+// Registering a `backButton` listener tells Capacitor's native bridge that JS now
+// owns back-press behaviour entirely — it will no longer auto-exit the activity, so
+// exiting from the root is our job here, not a default we can rely on.
+let backButtonWired = false;
+
+/** Call once at startup. No-op outside a native Android shell (e.g. browser dev). */
+export function wireHardwareBackButton(): void {
+  if (backButtonWired || !Capacitor.isNativePlatform()) return;
+  backButtonWired = true;
+  App.addListener('backButton', () => {
+    if (!pop()) App.exitApp();
+  });
 }
