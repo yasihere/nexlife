@@ -2,10 +2,18 @@
 // with a version bump and an upgrade function — see CLAUDE.md §7.
 
 import Dexie, { type Table } from 'dexie';
-import type { Entry } from './types';
+import type { Entry, Settings } from './types';
+
+// The `settings` table stores exactly one row, keyed by this fixed id — there is
+// one user, one device, one settings object (CLAUDE.md §1). See src/data/settings.ts.
+export const SETTINGS_ROW_ID = 'app';
+export interface SettingsRow extends Settings {
+  id: typeof SETTINGS_ROW_ID;
+}
 
 export class NexLifeDB extends Dexie {
   entries!: Table<Entry, string>;
+  settings!: Table<SettingsRow, string>;
 
   constructor() {
     super('nexlife');
@@ -29,6 +37,15 @@ export class NexLifeDB extends Dexie {
       // version bump), startMin (a single day's entries are a small in-memory set,
       // sorted client-side), free-text fields (Phase 11 owns real search indexing).
       entries: 'id, dayKey, [type+dayKey], completedAt, *tags, seriesId, deletedAt',
+    });
+
+    // v2 (Phase 4): a `settings` table, needed for real now that Triage has to
+    // persist lastTriageDay somewhere. `entries` is restated unchanged — Dexie
+    // requires every version's stores() to describe the full schema, not a diff.
+    // No .upgrade() needed: it's a brand-new table, nothing existing to migrate.
+    this.version(2).stores({
+      entries: 'id, dayKey, [type+dayKey], completedAt, *tags, seriesId, deletedAt',
+      settings: 'id',
     });
   }
 }

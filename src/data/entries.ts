@@ -82,17 +82,61 @@ export async function getByDay(dayKey: string): Promise<Entry[]> {
 }
 
 /**
- * Incomplete tasks scheduled before `beforeDayKey` — Triage's queue. Task-only:
- * habits, logs and notes never count as "overdue". Uses the [type+dayKey] index so
- * the DB narrows to 'task' rows in range before any JS filtering runs, rather than
- * scanning the whole table.
+ * Incomplete tasks scheduled before `beforeDayKey` — Triage's queue, oldest first
+ * (Triage works the backlog in that order; sorting once here means every caller
+ * gets a sensible order for free). Task-only: habits, logs and notes never count
+ * as "overdue". Uses the [type+dayKey] index so the DB narrows to 'task' rows in
+ * range before any JS filtering runs, rather than scanning the whole table.
  */
 export async function getOverdue(beforeDayKey: string): Promise<Entry[]> {
-  return db.entries
+  const rows = await db.entries
     .where('[type+dayKey]')
     .between(['task', Dexie.minKey], ['task', beforeDayKey], true, false)
     .filter((e) => !e.completedAt && !e.droppedAt && !e.deletedAt)
     .toArray();
+  return rows.sort(
+    (a, b) => a.dayKey!.localeCompare(b.dayKey!) || (a.startMin ?? 0) - (b.startMin ?? 0)
+  );
+}
+
+/**
+ * Triage's bulk action for a large backlog: drop every incomplete task older
+ * than `beforeDayKeyExclusive`, in one write instead of one per card. Same
+ * range shape as getOverdue, just a different cutoff and a modify() instead of
+ * a read.
+ */
+export async function dropOlderThan(beforeDayKeyExclusive: string): Promise<number> {
+  return db.entries
+    .where('[type+dayKey]')
+    .between(['task', Dexie.minKey], ['task', beforeDayKeyExclusive], true, false)
+    .filter((e) => !e.completedAt && !e.droppedAt && !e.deletedAt)
+    .modify({ droppedAt: Date.now(), updatedAt: Date.now() });
+}
+
+/**
+ * Triage's closing line: among tasks dated `fromDayKey`..`toDayKey` (inclusive),
+ * how many ended up done vs dropped. Deliberately excludes anything moved to
+ * Today or rescheduled forward during this session — those are deferred, not
+ * resolved, and an honest line doesn't claim them either way. A task that was
+ * both completed and dropped (shouldn't happen in normal use) counts as done.
+ */
+export async function getDaySummary(
+  fromDayKey: string,
+  toDayKey: string
+): Promise<{ done: number; dropped: number }> {
+  const rows = await db.entries
+    .where('[type+dayKey]')
+    .between(['task', fromDayKey], ['task', toDayKey], true, true)
+    .filter((e) => !e.deletedAt)
+    .toArray();
+
+  let done = 0;
+  let dropped = 0;
+  for (const e of rows) {
+    if (e.completedAt) done++;
+    else if (e.droppedAt) dropped++;
+  }
+  return { done, dropped };
 }
 
 /**

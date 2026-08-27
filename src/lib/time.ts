@@ -25,3 +25,21 @@ export function addDays(key: string, count: number): string {
   const parsed = parse(key, 'yyyy-MM-dd', new Date());
   return format(addDaysToDate(parsed, count), 'yyyy-MM-dd');
 }
+
+function dayOfWeek(key: string): number {
+  return parse(key, 'yyyy-MM-dd', new Date()).getDay(); // 0 = Sunday .. 6 = Saturday
+}
+
+/** The upcoming Saturday — or `key` itself, if `key` already falls on a weekend. */
+export function nextWeekendKey(key: string): string {
+  const dow = dayOfWeek(key);
+  if (dow === 0 || dow === 6) return key;
+  return addDays(key, 6 - dow);
+}
+
+/** The Monday of the week after `key`'s week — always a full week out, even from a Monday. */
+export function nextWeekKey(key: string): string {
+  const dow = dayOfWeek(key);
+  const daysUntilMonday = (1 - dow + 7) % 7 || 7;
+  return addDays(key, daysUntilMonday);
+}
