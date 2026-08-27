@@ -3,7 +3,11 @@ interface EntryRowProps {
   time: string;
   top: number;
   height: number;
-  left: number;
+  /** CSS left, as a calc() string so overlapping entries can share the row (src/lib/layout.ts). */
+  left: string;
+  /** CSS width, as a calc() string — see `left`. */
+  width: string;
+  onToggleComplete: () => void;
   /** Done items lose colour, not gain it — CLAUDE.md §5: "removal, not colour". */
   completed?: boolean;
   /** Incomplete and scheduled before the Now Line — the one other use of `--signal`. */
@@ -16,16 +20,21 @@ export default function EntryRow({
   top,
   height,
   left,
+  width,
+  onToggleComplete,
   completed = false,
   overdue = false,
 }: EntryRowProps) {
   return (
-    <div
-      className="absolute right-2 flex flex-col justify-center overflow-hidden rounded bg-panel pl-3 pr-2"
+    <button
+      type="button"
+      onClick={onToggleComplete}
+      className="absolute flex flex-col justify-center overflow-hidden rounded bg-panel pl-3 pr-2 text-left transition-opacity duration-[120ms]"
       style={{
         top,
         height,
         left,
+        width,
         paddingTop: completed ? 4 : 8,
         paddingBottom: completed ? 4 : 8,
         opacity: completed ? 0.35 : 1,
@@ -36,11 +45,11 @@ export default function EntryRow({
         {time}
       </span>
       <span
-        className="text-title text-paper"
+        className="block w-full truncate text-title text-paper"
         style={{ textDecoration: completed ? 'line-through' : 'none' }}
       >
         {title}
       </span>
-    </div>
+    </button>
   );
 }
