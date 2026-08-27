@@ -20,14 +20,18 @@ export function todayKey(dayStartHour: number = DEFAULT_DAY_START_HOUR): string 
   return dayKey(new Date(), dayStartHour);
 }
 
+/** Parse a 'yyyy-MM-dd' day-key into a local Date (midnight, local time). */
+export function parseDayKey(key: string): Date {
+  return parse(key, 'yyyy-MM-dd', new Date());
+}
+
 /** Add (or, with a negative count, subtract) whole days to a day-key string. */
 export function addDays(key: string, count: number): string {
-  const parsed = parse(key, 'yyyy-MM-dd', new Date());
-  return format(addDaysToDate(parsed, count), 'yyyy-MM-dd');
+  return format(addDaysToDate(parseDayKey(key), count), 'yyyy-MM-dd');
 }
 
 function dayOfWeek(key: string): number {
-  return parse(key, 'yyyy-MM-dd', new Date()).getDay(); // 0 = Sunday .. 6 = Saturday
+  return parseDayKey(key).getDay(); // 0 = Sunday .. 6 = Saturday
 }
 
 /** The upcoming Saturday — or `key` itself, if `key` already falls on a weekend. */

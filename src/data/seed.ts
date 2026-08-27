@@ -96,20 +96,26 @@ export async function seed(): Promise<void> {
     });
   }
 
-  // One weekly recurring series. The rule lives on the earliest occurrence only —
-  // occurrences are materialised rows sharing seriesId, not regenerated from the
-  // rule here (that's src/data/recurrence.ts, Phase 6).
-  const seriesId = crypto.randomUUID();
+  // One weekly recurring series. The rule lives on the earliest occurrence (the
+  // "template") only — later rows are materialised occurrences sharing
+  // seriesId, not regenerated from the rule here (src/data/series.ts does that
+  // for real, lazily, for the visible window). Convention: seriesId is the
+  // template's own id (src/data/series.ts).
+  const templateDay = addDays(today, -4 * 7);
+  const templateId = crypto.randomUUID();
   for (let i = -4; i <= 2; i++) {
+    const isTemplate = i === -4;
     rows.push({
-      id: crypto.randomUUID(),
+      id: isTemplate ? templateId : crypto.randomUUID(),
       type: 'task',
       title: 'Weekly review',
       dayKey: addDays(today, i * 7),
       startMin: 18 * 60,
       estimateMin: 30,
-      seriesId,
-      recurrence: i === -4 ? { kind: 'weekly', every: 1, weekdays: [new Date().getDay()] } : undefined,
+      seriesId: templateId,
+      recurrence: isTemplate
+        ? { kind: 'weekly', every: 1, weekdays: [new Date().getDay()], startDay: templateDay }
+        : undefined,
       completedAt: i < 0 ? now : undefined,
       tags: ['work'],
       priority: 1,
@@ -117,6 +123,33 @@ export async function seed(): Promise<void> {
       updatedAt: now,
     });
   }
+
+  // One parent task with subtasks, for the "2/5" progress display.
+  const parentId = crypto.randomUUID();
+  rows.push({
+    id: parentId,
+    type: 'task',
+    title: 'Plan the offsite',
+    dayKey: today,
+    tags: ['work'],
+    priority: 2,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const subtaskTitles = ['Book venue', 'Send invites', 'Order catering', 'Book AV', 'Print agenda'];
+  subtaskTitles.forEach((title, i) => {
+    rows.push({
+      id: crypto.randomUUID(),
+      type: 'task',
+      title,
+      parentId,
+      tags: [],
+      priority: 0,
+      completedAt: i < 2 ? now : undefined,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
 
   await db.entries.bulkAdd(rows);
   // eslint-disable-next-line no-console

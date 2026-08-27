@@ -37,10 +37,15 @@ export interface Entry {
   deletedAt?: number; // soft delete, purged after 30 days
 }
 
+// `startDay` (Phase 6) anchors the cadence — "every 2 weeks" is meaningless
+// without a reference point. It's the dayKey of the series' first occurrence.
+// `timesPerWeek` deliberately has no startDay: it's a rolling weekly target for
+// habits (Phase 9), not a fixed-day schedule, so it never gets expanded into
+// occurrences the way the other three kinds do (src/data/recurrence.ts).
 export type Recurrence =
-  | { kind: 'daily'; every: number }
-  | { kind: 'weekly'; every: number; weekdays: number[] } // 0 = Sunday
-  | { kind: 'monthly'; every: number; dayOfMonth: number }
+  | { kind: 'daily'; every: number; startDay: string }
+  | { kind: 'weekly'; every: number; weekdays: number[]; startDay: string } // weekdays: 0 = Sunday
+  | { kind: 'monthly'; every: number; dayOfMonth: number; startDay: string }
   | { kind: 'timesPerWeek'; count: number }; // habits: "3x a week"
 
 /**

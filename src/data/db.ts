@@ -47,6 +47,15 @@ export class NexLifeDB extends Dexie {
       entries: 'id, dayKey, [type+dayKey], completedAt, *tags, seriesId, deletedAt',
       settings: 'id',
     });
+
+    // v3 (Phase 6): parentId, exactly as flagged in v1's own comment above —
+    // subtasks need "every child of this parent" without a table scan. No
+    // .upgrade(): existing rows simply have no parentId, which the index
+    // (like every other optional field here) just omits them from.
+    this.version(3).stores({
+      entries: 'id, dayKey, [type+dayKey], completedAt, *tags, seriesId, deletedAt, parentId',
+      settings: 'id',
+    });
   }
 }
 

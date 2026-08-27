@@ -161,6 +161,69 @@ export async function getUnscheduled(): Promise<Entry[]> {
     .toArray();
 }
 
+/** A single entry by id — for a live-updating detail view (e.g. EntrySheet). */
+export async function getById(id: string): Promise<Entry | undefined> {
+  return db.entries.get(id);
+}
+
+/**
+ * Recurring task templates — the entry that carries the `recurrence` rule
+ * itself (its own id doubles as `seriesId` for its occurrences — see
+ * src/data/series.ts). Not indexed (recurrence is a rare, nested field), but a
+ * personal task list has at most a handful of active series, so a full-table
+ * filter costs nothing here.
+ */
+export async function getRecurringTemplates(): Promise<Entry[]> {
+  return db.entries
+    .filter((e) => e.type === 'task' && !!e.recurrence && e.recurrence.kind !== 'timesPerWeek' && !e.deletedAt)
+    .toArray();
+}
+
+/** Every materialised occurrence of a series, template included. */
+export async function getSeriesOccurrences(seriesId: string): Promise<Entry[]> {
+  return db.entries.where('seriesId').equals(seriesId).toArray();
+}
+
+/** A series' template entry — its id is the seriesId by convention. */
+export async function getTemplateForSeries(seriesId: string): Promise<Entry | undefined> {
+  return db.entries.get(seriesId);
+}
+
+/** Direct children of a subtask parent (CLAUDE.md §4's "2/5" progress). */
+export async function getChildren(parentId: string): Promise<Entry[]> {
+  return db.entries
+    .where('parentId')
+    .equals(parentId)
+    .filter((e) => !e.deletedAt)
+    .toArray();
+}
+
+/**
+ * done/total child counts for many parents at once — one indexed query instead
+ * of one per row, for rendering "2/5" across a whole list.
+ */
+export async function getChildrenSummaryBatch(
+  parentIds: string[]
+): Promise<Map<string, { done: number; total: number }>> {
+  const summary = new Map<string, { done: number; total: number }>();
+  if (parentIds.length === 0) return summary;
+
+  const children = await db.entries
+    .where('parentId')
+    .anyOf(parentIds)
+    .filter((e) => !e.deletedAt)
+    .toArray();
+
+  for (const child of children) {
+    const key = child.parentId!;
+    const entry = summary.get(key) ?? { done: 0, total: 0 };
+    entry.total++;
+    if (child.completedAt) entry.done++;
+    summary.set(key, entry);
+  }
+  return summary;
+}
+
 /**
  * Linear scan across title, body and tags. Correct but not optimised — Phase 11
  * owns real indexed search once notes and the 10,000-entry / 50ms budget are in

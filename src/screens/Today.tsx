@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { format } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import NowLine from '../components/NowLine';
@@ -7,8 +7,12 @@ import BottomNav from '../components/BottomNav';
 import Sheet from '../components/Sheet';
 import QuickAdd from '../components/QuickAdd';
 import EmptyState from '../components/EmptyState';
-import { getByDay, complete, uncomplete } from '../data/entries';
-import { seed } from '../data/seed';
+import EntrySheet from '../components/EntrySheet';
+import UnscheduledList from '../components/UnscheduledList';
+import FilterBar, { EMPTY_FILTERS, matchesFilters, type Filters } from '../components/FilterBar';
+import DevTools from '../components/DevTools';
+import { getByDay, getById, getChildrenSummaryBatch, complete, uncomplete } from '../data/entries';
+import { materializeDueOccurrences } from '../data/series';
 import { todayKey, DEFAULT_DAY_START_HOUR } from '../lib/time';
 import { subscribeNow, now } from '../lib/clock';
 import { layoutDay } from '../lib/layout';
@@ -33,18 +37,17 @@ function relativeMinutes(min: number, dayStartHour: number): number {
 
 export default function Today() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [parseTestSummary, setParseTestSummary] = useState<string | null>(null);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
-  async function runParseTests(): Promise<void> {
-    const { runParseTests: run } = await import('../data/parseTestCases');
-    const results = await run();
-    const failed = results.filter((r) => r.failures.length > 0);
-    setParseTestSummary(`${results.length - failed.length}/${results.length} passed`);
-    if (failed.length) {
-      // eslint-disable-next-line no-console
-      console.table(failed.map((r) => ({ name: r.name, failures: r.failures.join('; ') })));
-    }
-  }
+  // A live query, not the Entry object captured at open-time — so if something
+  // in the sheet itself changes the entry (e.g. the subtask "Complete" nudge),
+  // the sheet's own read of e.g. completedAt reflects it immediately instead of
+  // staying stale until closed and reopened.
+  const editingEntry = useLiveQuery(
+    () => (editingEntryId ? getById(editingEntryId) : undefined),
+    [editingEntryId]
+  );
 
   const nowMs = useSyncExternalStore(subscribeNow, now, now);
   const nowDate = new Date(nowMs);
@@ -70,15 +73,26 @@ export default function Today() {
   }, []);
 
   const today = todayKey(DAY_START_HOUR);
-  const entries = useLiveQuery(() => getByDay(today), [today]) ?? [];
 
-  const scheduled = entries.filter(
-    (e): e is Entry & { startMin: number } => e.startMin != null
-  );
+  // Lazily materialise today's recurring occurrences before reading the day —
+  // SPEC.md: "materialised lazily for the visible window only".
+  useEffect(() => {
+    void materializeDueOccurrences(today);
+  }, [today]);
+
+  const entries = useLiveQuery(() => getByDay(today), [today]) ?? [];
+  const childSummaries =
+    useLiveQuery(() => getChildrenSummaryBatch(entries.map((e) => e.id)), [entries]) ??
+    new Map<string, { done: number; total: number }>();
+
+  const scheduled = entries.filter((e): e is Entry & { startMin: number } => e.startMin != null);
   const unscheduled = entries.filter((e) => e.startMin == null);
+  const filteredScheduled = scheduled.filter((e) => matchesFilters(e, filters));
+  const filteredUnscheduled = unscheduled.filter((e) => matchesFilters(e, filters));
+  const availableTags = Array.from(new Set(entries.flatMap((e) => e.tags))).sort();
 
   const layout = layoutDay(
-    scheduled.map((e) => {
+    filteredScheduled.map((e) => {
       const start = relativeMinutes(e.startMin, DAY_START_HOUR);
       return { id: e.id, start, end: start + (e.estimateMin ?? 30) };
     })
@@ -92,33 +106,16 @@ export default function Today() {
   }
 
   const HOURS = Array.from({ length: 24 }, (_, i) => (DAY_START_HOUR + i) % 24);
+  const nothingToday = entries.length === 0;
+  const filteredOutEverything =
+    !nothingToday && filteredScheduled.length === 0 && filteredUnscheduled.length === 0;
 
   return (
     <div className="mx-auto flex h-dvh max-w-[430px] flex-col bg-void">
       <header className="px-4 pb-3 pt-[max(16px,env(safe-area-inset-top))]">
         <div className="flex items-baseline justify-between">
           <h1 className="text-heading text-paper">{format(nowDate, 'EEEE, MMM d')}</h1>
-          {import.meta.env.DEV && (
-            <div className="flex items-center gap-3">
-              {parseTestSummary && (
-                <span className="text-[11px] text-muted">{parseTestSummary}</span>
-              )}
-              <button
-                type="button"
-                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
-                onClick={() => void runParseTests()}
-              >
-                Tests
-              </button>
-              <button
-                type="button"
-                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
-                onClick={() => void seed()}
-              >
-                Seed
-              </button>
-            </div>
-          )}
+          {import.meta.env.DEV && <DevTools />}
         </div>
         <p className="tabular-nums mt-1 text-sm text-muted">{remaining} remaining</p>
         <div className="mt-2 h-px w-full bg-rule">
@@ -126,12 +123,20 @@ export default function Today() {
         </div>
       </header>
 
-      {entries.length === 0 ? (
+      {!nothingToday && (
+        <FilterBar availableTags={availableTags} filters={filters} onChange={setFilters} />
+      )}
+
+      {nothingToday ? (
         <EmptyState
           message="Nothing scheduled. Add the first thing you'll do today."
           actionLabel="Add task"
           onAction={() => setQuickAddOpen(true)}
         />
+      ) : filteredOutEverything ? (
+        <div className="flex flex-1 items-center justify-center px-8 text-center text-title text-muted">
+          Nothing matches these filters.
+        </div>
       ) : (
         <div ref={setGridRef} className="relative flex-1 overflow-y-auto px-4">
           <div className="relative" style={{ height: HOURS.length * ROW_HEIGHT }}>
@@ -150,7 +155,7 @@ export default function Today() {
               </div>
             ))}
 
-            {scheduled.map((entry) => {
+            {filteredScheduled.map((entry) => {
               const rel = relativeMinutes(entry.startMin, DAY_START_HOUR);
               const top = (rel / 60) * ROW_HEIGHT;
               const rawHeight = ((entry.estimateMin ?? 30) / 60) * ROW_HEIGHT;
@@ -173,8 +178,11 @@ export default function Today() {
                   left={left}
                   width={width}
                   onToggleComplete={() => toggleComplete(entry)}
+                  onOpen={() => setEditingEntryId(entry.id)}
                   completed={!!entry.completedAt}
                   overdue={rel < nowMinRel && !entry.completedAt}
+                  priority={entry.priority}
+                  childProgress={childSummaries.get(entry.id)}
                 />
               );
             })}
@@ -182,32 +190,12 @@ export default function Today() {
             <NowLine top={nowTop} gutter={GUTTER} label={format(nowDate, 'h:mm a')} />
           </div>
 
-          {unscheduled.length > 0 && (
-            <div className="mb-4 mt-2 border-t border-rule pt-4">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
-                Unscheduled
-              </h2>
-              <ul className="mt-2 flex flex-col gap-2">
-                {unscheduled.map((entry) => (
-                  <li key={entry.id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleComplete(entry)}
-                      className="flex min-h-[44px] w-full min-w-0 items-center rounded bg-panel px-3 text-left transition-opacity duration-[120ms]"
-                      style={{ opacity: entry.completedAt ? 0.35 : 1 }}
-                    >
-                      <span
-                        className="block w-full truncate text-title text-paper"
-                        style={{ textDecoration: entry.completedAt ? 'line-through' : 'none' }}
-                      >
-                        {entry.title}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <UnscheduledList
+            entries={filteredUnscheduled}
+            childSummaries={childSummaries}
+            onToggleComplete={toggleComplete}
+            onOpen={(entry) => setEditingEntryId(entry.id)}
+          />
         </div>
       )}
 
@@ -223,6 +211,16 @@ export default function Today() {
 
       <Sheet open={quickAddOpen} onClose={() => setQuickAddOpen(false)}>
         <QuickAdd onClose={() => setQuickAddOpen(false)} />
+      </Sheet>
+
+      <Sheet open={!!editingEntryId} onClose={() => setEditingEntryId(null)}>
+        {editingEntry && (
+          <EntrySheet
+            key={editingEntry.id}
+            entry={editingEntry}
+            onClose={() => setEditingEntryId(null)}
+          />
+        )}
       </Sheet>
     </div>
   );
