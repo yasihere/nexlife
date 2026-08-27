@@ -1,29 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
+import { useLiveQuery } from 'dexie-react-hooks';
 import NowLine from './components/NowLine';
 import EntryRow from './components/EntryRow';
 import BottomNav from './components/BottomNav';
+import { getByDay } from './data/entries';
+import { seed } from './data/seed';
+import { todayKey } from './lib/time';
 
 const ROW_HEIGHT = 64; // px per hour
 const GUTTER = 64; // px — hour-label column, wide enough for "12:27 PM"
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-// Placeholder rows. Real entries arrive from src/data/entries.ts in Phase 2 —
-// this shell only needs to prove the grid and the Now Line read correctly.
-const DUMMY_ENTRIES = [
-  { title: 'Morning run', startMin: 6 * 60 + 30, estimateMin: 30, completed: true },
-  { title: 'Reply to invoices', startMin: 9 * 60, estimateMin: 45, completed: false },
-  { title: 'Design review call', startMin: 15 * 60, estimateMin: 60, completed: false },
-];
-
 export default function App() {
   const [now] = useState(() => new Date());
   const gridRef = useRef<HTMLDivElement>(null);
 
+  const today = todayKey();
+  // Phase 2 wiring only, to prove the Dexie -> useLiveQuery -> render chain. The
+  // real time grid (overlap layout, Unscheduled section, shared Now Line interval)
+  // is Phase 3 — this reuses the Phase 0 shell as-is, so only startMin'd entries
+  // render and a missing estimateMin falls back to a nominal 30 minutes.
+  const entries = useLiveQuery(() => getByDay(today), [today]) ?? [];
+  const scheduled = entries.filter((e): e is typeof e & { startMin: number } => e.startMin != null);
+
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const nowTop = (nowMin / 60) * ROW_HEIGHT;
-  const remaining = DUMMY_ENTRIES.filter((e) => !e.completed).length;
-  const progress = (DUMMY_ENTRIES.length - remaining) / DUMMY_ENTRIES.length;
+  const remaining = entries.filter((e) => !e.completedAt).length;
+  const progress = entries.length === 0 ? 0 : (entries.length - remaining) / entries.length;
 
   // Open on the current time rather than midnight — a phone screen can't show
   // all 24 hours at once.
@@ -37,7 +41,18 @@ export default function App() {
   return (
     <div className="mx-auto flex h-dvh max-w-[430px] flex-col bg-void">
       <header className="px-4 pb-3 pt-[max(16px,env(safe-area-inset-top))]">
-        <h1 className="text-heading text-paper">{format(now, 'EEEE, MMM d')}</h1>
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-heading text-paper">{format(now, 'EEEE, MMM d')}</h1>
+          {import.meta.env.DEV && (
+            <button
+              type="button"
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
+              onClick={() => void seed()}
+            >
+              Seed
+            </button>
+          )}
+        </div>
         <p className="tabular-nums mt-1 text-sm text-muted">{remaining} remaining</p>
         <div className="mt-2 h-px w-full bg-rule">
           <div className="h-px bg-paper/60" style={{ width: `${progress * 100}%` }} />
@@ -61,16 +76,16 @@ export default function App() {
             </div>
           ))}
 
-          {DUMMY_ENTRIES.map((entry) => (
+          {scheduled.map((entry) => (
             <EntryRow
-              key={entry.title}
+              key={entry.id}
               title={entry.title}
               time={format(new Date(0, 0, 0, 0, entry.startMin), 'h:mm a')}
               top={(entry.startMin / 60) * ROW_HEIGHT}
-              height={Math.max((entry.estimateMin / 60) * ROW_HEIGHT, 40)}
+              height={Math.max(((entry.estimateMin ?? 30) / 60) * ROW_HEIGHT, 40)}
               left={GUTTER}
-              completed={entry.completed}
-              overdue={entry.startMin < nowMin && !entry.completed}
+              completed={!!entry.completedAt}
+              overdue={entry.startMin < nowMin && !entry.completedAt}
             />
           ))}
 
