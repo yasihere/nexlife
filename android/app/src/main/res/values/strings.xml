@@ -4,4 +4,10 @@
     <string name="title_activity_main">NexLife</string>
     <string name="package_name">com.yasihere.nexlife</string>
     <string name="custom_url_scheme">com.yasihere.nexlife</string>
+
+    <!-- Launcher shortcuts — long-press the app icon (PROMPTS.md Phase 8, #6) -->
+    <string name="shortcut_add_task_short">Add task</string>
+    <string name="shortcut_add_task_long">Add a task</string>
+    <string name="shortcut_today_short">Today</string>
+    <string name="shortcut_today_long">Open Today</string>
 </resources>

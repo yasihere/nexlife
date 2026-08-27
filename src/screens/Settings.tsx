@@ -4,10 +4,13 @@ import { differenceInCalendarDays } from 'date-fns';
 import BottomNav from '../components/BottomNav';
 import { getEntryCount } from '../data/queries';
 import { purgeOldDeleted } from '../data/entries';
-import { getSettings } from '../data/settings';
+import { getSettings, updateSettings } from '../data/settings';
+import { ensureNotificationPermission } from '../lib/notifications';
 import type { ValidationResult } from '../data/backup';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const LEAD_TIME_OPTIONS = [0, 5, 10, 15, 30] as const;
+const DEFAULT_LEAD_MIN = 10;
 
 type ImportState =
   | { step: 'idle' }
@@ -70,6 +73,11 @@ export default function Settings() {
     const { commitImport } = await import('../data/backup');
     const count = await commitImport(importState.result, importState.mode);
     setImportState({ step: 'done', count });
+  }
+
+  async function handleLeadTimeChange(minutes: number): Promise<void> {
+    await ensureNotificationPermission();
+    await updateSettings({ notificationLeadMin: minutes });
   }
 
   async function handlePurge(): Promise<void> {
@@ -148,7 +156,7 @@ export default function Settings() {
                     type="button"
                     onClick={() => setImportState({ ...importState, mode })}
                     className={
-                      'min-h-[36px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
+                      'min-h-[44px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
                       (importState.mode === mode ? 'border-paper text-paper' : 'border-rule text-muted')
                     }
                   >
@@ -179,6 +187,30 @@ export default function Settings() {
           {importState.step === 'done' && (
             <p className="text-title text-paper">Imported {importState.count} entries.</p>
           )}
+        </section>
+
+        <section className="flex flex-col gap-2 border-b border-rule py-4">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+            Reminders
+          </span>
+          <p className="text-title text-muted">Minutes before a scheduled entry starts</p>
+          <div className="flex gap-2">
+            {LEAD_TIME_OPTIONS.map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                onClick={() => void handleLeadTimeChange(minutes)}
+                className={
+                  'min-h-[44px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
+                  ((settings?.notificationLeadMin ?? DEFAULT_LEAD_MIN) === minutes
+                    ? 'border-paper text-paper'
+                    : 'border-rule text-muted')
+                }
+              >
+                {minutes === 0 ? 'At start' : `${minutes}m`}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="flex flex-col gap-2 py-4">

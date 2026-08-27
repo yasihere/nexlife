@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
-import NowLine from '../components/NowLine';
-import EntryRow from '../components/EntryRow';
 import BottomNav from '../components/BottomNav';
 import Sheet from '../components/Sheet';
 import QuickAdd from '../components/QuickAdd';
 import EmptyState from '../components/EmptyState';
 import EntrySheet from '../components/EntrySheet';
 import UnscheduledList from '../components/UnscheduledList';
+import TimeGrid, { ROW_HEIGHT } from '../components/TimeGrid';
 import FilterBar, { EMPTY_FILTERS, matchesFilters, type Filters } from '../components/FilterBar';
 import DevTools from '../components/DevTools';
+import BackupNag from '../components/BackupNag';
 import { getByDay, getById, getChildrenSummaryBatch } from '../data/queries';
 import { complete, uncomplete } from '../data/entries';
 import { materializeDueOccurrences } from '../data/series';
 import { getSettings } from '../data/settings';
-import BackupNag from '../components/BackupNag';
+import { hapticTick } from '../lib/native';
+import { syncNotifications } from '../lib/notifications';
+import { consumePendingAddTask, subscribeLaunchIntent } from '../lib/launchIntent';
 import { todayKey, DEFAULT_DAY_START_HOUR } from '../lib/time';
 import { subscribeNow, now } from '../lib/clock';
 import { layoutDay } from '../lib/layout';
@@ -23,17 +25,11 @@ import type { Entry } from '../data/types';
 
 const BACKUP_NAG_DAYS = 14;
 
-const ROW_HEIGHT = 64; // px per hour
-const GUTTER = 64; // px — hour-label column, wide enough for "12:27 PM"
-const RIGHT_MARGIN = 8; // px — matches the grid's px-4 minus the outer px-4 already on the scroller
-const COLUMN_GAP = 4; // px between side-by-side overlapping entries
-const MIN_TOUCH_HEIGHT = 44; // px — CLAUDE.md §5, even for a 5-minute entry
-const SCROLL_BIAS = 0.35; // Now Line sits ~35% from the top on first render
-
 // A day-start hour shifts which calendar hour opens the grid (e.g. 4am instead of
 // midnight) — see CLAUDE.md §7. No Settings UI exists yet to change it (Phase 7),
 // so this is wired to the default but is otherwise the real, final code path.
 const DAY_START_HOUR = DEFAULT_DAY_START_HOUR;
+const SCROLL_BIAS = 0.35; // Now Line sits ~35% from the top on first render
 
 /** Minutes-from-midnight, shifted so the day-start hour becomes minute 0. */
 function relativeMinutes(min: number, dayStartHour: number): number {
@@ -45,6 +41,17 @@ export default function Today() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [nagDismissed, setNagDismissed] = useState(false);
+
+  // The "Add task" launcher shortcut (PROMPTS.md Phase 8, #6) sets this before
+  // React may even have mounted (cold launch) or while already running (warm
+  // relaunch) — check once now, then keep listening for a later one.
+  useEffect(() => {
+    function checkPendingAddTask(): void {
+      if (consumePendingAddTask()) setQuickAddOpen(true);
+    }
+    checkPendingAddTask();
+    return subscribeLaunchIntent(checkPendingAddTask);
+  }, []);
 
   const settings = useLiveQuery(() => getSettings());
   const daysSinceExport = settings?.lastExportAt
@@ -93,7 +100,22 @@ export default function Today() {
     void materializeDueOccurrences(today);
   }, [today]);
 
-  const entries = useLiveQuery(() => getByDay(today), [today]) ?? [];
+  // undefined (still loading) is kept distinct from [] (genuinely empty) below
+  // — collapsing them would flash the empty state's "add the first thing" CTA
+  // before the real query resolves.
+  const rawEntries = useLiveQuery(() => getByDay(today), [today]);
+  const entries = rawEntries ?? [];
+  const isLoading = rawEntries === undefined;
+
+  // Reminders + the ongoing summary (PROMPTS.md Phase 8, #4 #5) — resynced on
+  // every write to today's entries, on the FULL day regardless of the
+  // (ephemeral, UI-only) filter selection below.
+  useEffect(() => {
+    if (isLoading) return;
+    void syncNotifications(entries, settings?.notificationLeadMin);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawEntries, settings?.notificationLeadMin]);
+
   const childSummaries =
     useLiveQuery(() => getChildrenSummaryBatch(entries.map((e) => e.id)), [entries]) ??
     new Map<string, { done: number; total: number }>();
@@ -115,11 +137,16 @@ export default function Today() {
   const progress = entries.length === 0 ? 0 : (entries.length - remaining) / entries.length;
 
   function toggleComplete(entry: Entry): void {
-    void (entry.completedAt ? uncomplete(entry.id) : complete(entry.id));
+    if (entry.completedAt) {
+      void uncomplete(entry.id);
+    } else {
+      void complete(entry.id);
+      void hapticTick();
+    }
   }
 
   const HOURS = Array.from({ length: 24 }, (_, i) => (DAY_START_HOUR + i) % 24);
-  const nothingToday = entries.length === 0;
+  const nothingToday = !isLoading && entries.length === 0;
   const filteredOutEverything =
     !nothingToday && filteredScheduled.length === 0 && filteredUnscheduled.length === 0;
 
@@ -140,11 +167,13 @@ export default function Today() {
         <BackupNag daysSinceExport={daysSinceExport} onDismiss={() => setNagDismissed(true)} />
       )}
 
-      {!nothingToday && (
+      {!nothingToday && !isLoading && (
         <FilterBar availableTags={availableTags} filters={filters} onChange={setFilters} />
       )}
 
-      {nothingToday ? (
+      {isLoading ? (
+        <div className="flex flex-1 items-center justify-center text-title text-muted">Loading…</div>
+      ) : nothingToday ? (
         <EmptyState
           message="Nothing scheduled. Add the first thing you'll do today."
           actionLabel="Add task"
@@ -156,56 +185,18 @@ export default function Today() {
         </div>
       ) : (
         <div ref={setGridRef} className="relative flex-1 overflow-y-auto px-4">
-          <div className="relative" style={{ height: HOURS.length * ROW_HEIGHT }}>
-            {HOURS.map((hour, i) => (
-              <div
-                key={hour}
-                className="absolute inset-x-0 border-t border-rule"
-                style={{ top: i * ROW_HEIGHT }}
-              >
-                <span
-                  className="tabular-nums absolute -top-[6px] whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
-                  style={{ width: GUTTER - 8 }}
-                >
-                  {format(new Date(0, 0, 0, hour), 'h a')}
-                </span>
-              </div>
-            ))}
-
-            {filteredScheduled.map((entry) => {
-              const rel = relativeMinutes(entry.startMin, DAY_START_HOUR);
-              const top = (rel / 60) * ROW_HEIGHT;
-              const rawHeight = ((entry.estimateMin ?? 30) / 60) * ROW_HEIGHT;
-              const height = Math.max(rawHeight, MIN_TOUCH_HEIGHT);
-              const { col, cols } = layout.get(entry.id) ?? { col: 0, cols: 1 };
-              const totalGap = COLUMN_GAP * (cols - 1);
-              const trackWidth = `(100% - ${GUTTER + RIGHT_MARGIN}px - ${totalGap}px)`;
-              const width = `calc(${trackWidth} / ${cols})`;
-              const left = `calc(${GUTTER}px + ${trackWidth} * ${col} / ${cols} + ${
-                col * COLUMN_GAP
-              }px)`;
-
-              return (
-                <EntryRow
-                  key={entry.id}
-                  title={entry.title}
-                  time={format(new Date(0, 0, 0, 0, entry.startMin), 'h:mm a')}
-                  top={top}
-                  height={height}
-                  left={left}
-                  width={width}
-                  onToggleComplete={() => toggleComplete(entry)}
-                  onOpen={() => setEditingEntryId(entry.id)}
-                  completed={!!entry.completedAt}
-                  overdue={rel < nowMinRel && !entry.completedAt}
-                  priority={entry.priority}
-                  childProgress={childSummaries.get(entry.id)}
-                />
-              );
-            })}
-
-            <NowLine top={nowTop} gutter={GUTTER} label={format(nowDate, 'h:mm a')} />
-          </div>
+          <TimeGrid
+            hours={HOURS}
+            scheduled={filteredScheduled}
+            layout={layout}
+            relativeMinutes={(min) => relativeMinutes(min, DAY_START_HOUR)}
+            nowTop={nowTop}
+            nowMinRel={nowMinRel}
+            nowLabel={format(nowDate, 'h:mm a')}
+            childSummaries={childSummaries}
+            onToggleComplete={toggleComplete}
+            onOpen={(entry) => setEditingEntryId(entry.id)}
+          />
 
           <UnscheduledList
             entries={filteredUnscheduled}

@@ -6,6 +6,7 @@ import TriageCard from '../components/TriageCard';
 import { getOverdue, getDaySummary } from '../data/queries';
 import { update, drop, dropOlderThan } from '../data/entries';
 import { updateSettings } from '../data/settings';
+import { hapticTick } from '../lib/native';
 import { todayKey, addDays, nextWeekendKey, nextWeekKey } from '../lib/time';
 import type { Entry } from '../data/types';
 
@@ -121,7 +122,10 @@ export default function Triage({ onDone }: TriageProps) {
         <div className="px-4 pt-2">
           <button
             type="button"
-            onClick={() => void dropOlderThan(bulkCutoff)}
+            onClick={() => {
+              void dropOlderThan(bulkCutoff);
+              void hapticTick();
+            }}
             className="min-h-[44px] w-full rounded border border-rule text-sm text-muted"
           >
             Drop all older than {BULK_DROP_AGE_DAYS} days ({bulkCount})
@@ -134,7 +138,10 @@ export default function Triage({ onDone }: TriageProps) {
         entry={current}
         onToday={() => void update(current.id, { dayKey: today })}
         onReschedule={() => setRescheduling(current)}
-        onDrop={() => void drop(current.id)}
+        onDrop={() => {
+          void drop(current.id);
+          void hapticTick();
+        }}
       />
 
       <Sheet open={rescheduling !== null} onClose={() => setRescheduling(null)}>

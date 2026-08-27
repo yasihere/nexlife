@@ -37,7 +37,7 @@ function Toggle({ active, onClick, children }: ToggleProps) {
       type="button"
       onClick={onClick}
       className={
-        'min-h-[36px] whitespace-nowrap rounded border px-3 text-[11px] font-semibold uppercase tracking-[0.08em] ' +
+        'min-h-[44px] whitespace-nowrap rounded border px-3 text-[11px] font-semibold uppercase tracking-[0.08em] ' +
         (active ? 'border-paper text-paper' : 'border-rule text-muted')
       }
     >

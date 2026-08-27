@@ -14,7 +14,7 @@ export default function BackupNag({ daysSinceExport, onDismiss }: BackupNagProps
         {daysSinceExport === null ? 'Never backed up.' : `Last backup ${daysSinceExport} days ago.`}{' '}
         <span className="text-paper underline">Export</span>
       </button>
-      <button type="button" onClick={onDismiss} className="pl-3 text-muted">
+      <button type="button" onClick={onDismiss} aria-label="Dismiss" className="pl-3 text-muted">
         ×
       </button>
     </div>

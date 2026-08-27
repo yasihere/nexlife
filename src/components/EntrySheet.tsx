@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { complete, drop } from '../data/entries';
 import { updateOccurrence } from '../data/series';
+import { hapticTick } from '../lib/native';
 import { todayKey } from '../lib/time';
 import type { Entry, Recurrence } from '../data/types';
 import SubtaskList from './SubtaskList';
@@ -81,6 +82,7 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
 
   async function handleDrop(): Promise<void> {
     await drop(entry.id);
+    void hapticTick();
     onClose();
   }
 
@@ -103,7 +105,7 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
               type="button"
               onClick={() => setPriority(level)}
               className={
-                'min-h-[36px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
+                'min-h-[44px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
                 (priority === level ? 'border-paper text-paper' : 'border-rule text-muted')
               }
             >
@@ -122,7 +124,7 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
               type="button"
               onClick={() => setEnergy(energy === level ? undefined : level)}
               className={
-                'min-h-[36px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
+                'min-h-[44px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
                 (energy === level ? 'border-paper text-paper' : 'border-rule text-muted')
               }
             >
@@ -140,6 +142,7 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
               key={tag}
               type="button"
               onClick={() => setTags(tags.filter((t) => t !== tag))}
+              aria-label={`Remove tag ${tag}`}
               className="rounded border border-rule px-2 py-1 text-[11px] uppercase tracking-[0.08em] text-muted"
             >
               #{tag} ×
@@ -173,7 +176,10 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
         <SubtaskList
           parentId={entry.id}
           parentCompleted={!!entry.completedAt}
-          onCompleteParent={() => void complete(entry.id)}
+          onCompleteParent={() => {
+            void complete(entry.id);
+            void hapticTick();
+          }}
         />
       )}
 

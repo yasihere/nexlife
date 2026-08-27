@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Static launcher shortcuts (long-press the app icon) — PROMPTS.md Phase 8, #6.
+  Each intent deep-links through the custom URL scheme declared in
+  AndroidManifest.xml's second intent-filter; the JS side reads it via
+  Capacitor's appUrlOpen (src/main.tsx) rather than a custom native plugin.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add_task"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_add_task_short"
+        android:shortcutLongLabel="@string/shortcut_add_task_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="com.yasihere.nexlife://add"
+            android:targetPackage="com.yasihere.nexlife"
+            android:targetClass="com.yasihere.nexlife.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="today"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_today_short"
+        android:shortcutLongLabel="@string/shortcut_today_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="com.yasihere.nexlife://today"
+            android:targetPackage="com.yasihere.nexlife"
+            android:targetClass="com.yasihere.nexlife.MainActivity" />
+    </shortcut>
+</shortcuts>

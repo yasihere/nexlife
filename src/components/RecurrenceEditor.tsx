@@ -49,7 +49,7 @@ export default function RecurrenceEditor({ value, onChange }: RecurrenceEditorPr
                 type="button"
                 onClick={() => onChange({ ...value, kind })}
                 className={
-                  'min-h-[36px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
+                  'min-h-[44px] flex-1 rounded border text-[11px] font-semibold uppercase tracking-[0.08em] ' +
                   (value.kind === kind ? 'border-paper text-paper' : 'border-rule text-muted')
                 }
               >
@@ -91,7 +91,7 @@ export default function RecurrenceEditor({ value, onChange }: RecurrenceEditorPr
                       })
                     }
                     className={
-                      'flex h-9 flex-1 items-center justify-center rounded border text-[11px] font-semibold ' +
+                      'flex h-[44px] flex-1 items-center justify-center rounded border text-[11px] font-semibold ' +
                       (active ? 'border-paper text-paper' : 'border-rule text-muted')
                     }
                   >

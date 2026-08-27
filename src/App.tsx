@@ -1,13 +1,20 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import Today from './screens/Today';
-import Triage from './screens/Triage';
-import Settings from './screens/Settings';
 import BottomNav from './components/BottomNav';
 import { subscribe, current, replace } from './lib/nav';
 import { getOverdue } from './data/queries';
 import { getSettings } from './data/settings';
 import { todayKey } from './lib/time';
+
+// Route-split every screen (CLAUDE.md §6) — each is its own chunk, fetched
+// only when actually shown. Report bundle before/after per PROMPTS.md Phase 8.
+const Today = lazy(() => import('./screens/Today'));
+const Triage = lazy(() => import('./screens/Triage'));
+const Settings = lazy(() => import('./screens/Settings'));
+
+// Same background as the gate's own loading frame — a lazy chunk still
+// fetching should never show a blank or mismatched-colour flash.
+const screenFallback = <div className="h-dvh bg-void" />;
 
 function ComingSoon({ title }: { title: string }) {
   return (
@@ -41,18 +48,24 @@ export default function App() {
     if (dueForTriage && overdue.length > 0) replace('triage');
   }, [gateResolved, settings, overdue, today]);
 
-  if (!gateResolved) return <div className="h-dvh bg-void" />;
+  if (!gateResolved) return screenFallback;
 
-  switch (screen) {
-    case 'triage':
-      return <Triage onDone={() => replace('today')} />;
-    case 'settings':
-      return <Settings />;
-    case 'plan':
-      return <ComingSoon title="Plan" />;
-    case 'review':
-      return <ComingSoon title="Review" />;
-    default:
-      return <Today />;
-  }
+  return (
+    <Suspense fallback={screenFallback}>
+      {(() => {
+        switch (screen) {
+          case 'triage':
+            return <Triage onDone={() => replace('today')} />;
+          case 'settings':
+            return <Settings />;
+          case 'plan':
+            return <ComingSoon title="Plan" />;
+          case 'review':
+            return <ComingSoon title="Review" />;
+          default:
+            return <Today />;
+        }
+      })()}
+    </Suspense>
+  );
 }

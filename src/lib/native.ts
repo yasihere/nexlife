@@ -37,3 +37,15 @@ export async function saveAndShareFile(
   link.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * A 10ms tick on complete/drop (PROMPTS.md Phase 8, #7). No-op outside native,
+ * and honours prefers-reduced-motion — haptics are a form of motion feedback,
+ * so the same preference that stops the Now Line sliding stops this buzzing.
+ */
+export async function hapticTick(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const { Haptics } = await import('@capacitor/haptics');
+  await Haptics.vibrate({ duration: 10 });
+}

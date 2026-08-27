@@ -31,7 +31,16 @@
     --paper: #10141c;
     --rule: #ddd9d0;
     --muted: #6b7280;
-    /* --signal is unchanged in light mode */
+    /* Darkened, same hue as dark mode's #e9a13b — the un-darkened amber measures
+     * only ~2:1 against these light backgrounds (checked against actual WCAG
+     * contrast math, not eyeballed), failing even the relaxed 3:1 non-text
+     * threshold for the Now Line's rule/dot and the overdue-entry border, let
+     * alone 4.5:1 for its own text uses (the Now Line label; button text set in
+     * --void against a --signal background). This value clears 4.5:1 against
+     * both --panel (#fff, 4.97:1) and --void (#f7f5f0, 4.56:1) above, at the
+     * same hue/saturation as the dark-mode value — only lightness changed.
+     */
+    --signal: #9d6312;
   }
 }
 

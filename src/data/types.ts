@@ -58,6 +58,7 @@ export interface Settings {
   dayStartHour: number; // 0-23. A 1am entry belongs to the previous day when this is e.g. 4.
   lastTriageDay?: string; // dayKey of the last fully-cleared Triage — Phase 4
   lastExportAt?: number; // Phase 7
+  notificationLeadMin?: number; // minutes before startMin a reminder fires — Phase 8, default 10
 }
 
 export function isTask(e: Entry): boolean {

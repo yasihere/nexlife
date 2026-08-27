@@ -22,6 +22,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Launcher shortcuts (long-press the app icon) deep-link through this
+                 custom scheme rather than a custom native plugin — Capacitor's App
+                 plugin already surfaces it to JS via appUrlOpen. See res/xml/shortcuts.xml
+                 and src/main.tsx. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Matches @string/custom_url_scheme below — hardcoded because
+                     android:scheme in a <data> tag doesn't reliably resolve a
+                     @string/ resource reference across all AAPT versions. -->
+                <data android:scheme="com.yasihere.nexlife" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
         </activity>
 
         <provider

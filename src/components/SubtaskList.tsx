@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getChildren } from '../data/queries';
 import { create, complete, uncomplete } from '../data/entries';
+import { hapticTick } from '../lib/native';
 
 interface SubtaskListProps {
   parentId: string;
@@ -53,7 +54,13 @@ export default function SubtaskList({ parentId, parentCompleted, onCompleteParen
             <li key={child.id}>
               <button
                 type="button"
-                onClick={() => void (child.completedAt ? uncomplete(child.id) : complete(child.id))}
+                onClick={() => {
+                  if (child.completedAt) void uncomplete(child.id);
+                  else {
+                    void complete(child.id);
+                    void hapticTick();
+                  }
+                }}
                 className="flex min-h-[44px] w-full items-center rounded bg-panel px-3 text-left transition-opacity duration-[120ms]"
                 style={{ opacity: child.completedAt ? 0.35 : 1 }}
               >
