@@ -7,17 +7,27 @@ import type { Entry } from './types';
 
 type NewEntry = Partial<Entry> & Pick<Entry, 'type' | 'title'>;
 
-/** Create an entry. Fills in id, createdAt/updatedAt, and organisation defaults. */
+/**
+ * Create an entry. Fills in id, createdAt/updatedAt, and organisation defaults.
+ * Keys explicitly set to `undefined` in `input` (e.g. a parser that always
+ * returns a `dayKey` field, sometimes unset) are dropped rather than stored as
+ * literal `undefined` — same reasoning as update()'s delete-on-undefined below,
+ * applied at creation time instead of via a later patch.
+ */
 export async function create(input: NewEntry): Promise<Entry> {
   const now = Date.now();
+  const clean: Partial<NewEntry> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) (clean as Record<string, unknown>)[key] = value;
+  }
   const entry: Entry = {
     tags: [],
     priority: 0,
-    ...input,
+    ...clean,
     id: crypto.randomUUID(),
     createdAt: now,
     updatedAt: now,
-  };
+  } as Entry;
   await db.entries.add(entry);
   return entry;
 }

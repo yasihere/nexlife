@@ -33,6 +33,18 @@ function relativeMinutes(min: number, dayStartHour: number): number {
 
 export default function Today() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [parseTestSummary, setParseTestSummary] = useState<string | null>(null);
+
+  async function runParseTests(): Promise<void> {
+    const { runParseTests: run } = await import('../data/parseTestCases');
+    const results = await run();
+    const failed = results.filter((r) => r.failures.length > 0);
+    setParseTestSummary(`${results.length - failed.length}/${results.length} passed`);
+    if (failed.length) {
+      // eslint-disable-next-line no-console
+      console.table(failed.map((r) => ({ name: r.name, failures: r.failures.join('; ') })));
+    }
+  }
 
   const nowMs = useSyncExternalStore(subscribeNow, now, now);
   const nowDate = new Date(nowMs);
@@ -87,13 +99,25 @@ export default function Today() {
         <div className="flex items-baseline justify-between">
           <h1 className="text-heading text-paper">{format(nowDate, 'EEEE, MMM d')}</h1>
           {import.meta.env.DEV && (
-            <button
-              type="button"
-              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
-              onClick={() => void seed()}
-            >
-              Seed
-            </button>
+            <div className="flex items-center gap-3">
+              {parseTestSummary && (
+                <span className="text-[11px] text-muted">{parseTestSummary}</span>
+              )}
+              <button
+                type="button"
+                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
+                onClick={() => void runParseTests()}
+              >
+                Tests
+              </button>
+              <button
+                type="button"
+                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
+                onClick={() => void seed()}
+              >
+                Seed
+              </button>
+            </div>
           )}
         </div>
         <p className="tabular-nums mt-1 text-sm text-muted">{remaining} remaining</p>
