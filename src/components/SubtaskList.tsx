@@ -17,7 +17,7 @@ interface SubtaskListProps {
  */
 export default function SubtaskList({ parentId, parentCompleted, onCompleteParent }: SubtaskListProps) {
   const [newTitle, setNewTitle] = useState('');
-  const children = useLiveQuery(() => getChildren(parentId), [parentId]) ?? [];
+  const children = useLiveQuery(() => getChildren(parentId, 'task'), [parentId]) ?? [];
   const done = children.filter((c) => !!c.completedAt).length;
   const allDone = children.length > 0 && done === children.length;
 

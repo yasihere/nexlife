@@ -5,6 +5,7 @@ import { hapticTick } from '../lib/native';
 import { todayKey } from '../lib/time';
 import type { Entry, Recurrence } from '../data/types';
 import SubtaskList from './SubtaskList';
+import AttachedNotes from './AttachedNotes';
 import RecurrenceEditor, { type RepeatDraft } from './RecurrenceEditor';
 
 interface EntrySheetProps {
@@ -182,6 +183,8 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
           }}
         />
       )}
+
+      {!entry.parentId && <AttachedNotes parentId={entry.id} />}
 
       {!entry.parentId && (
         <div className="flex flex-col gap-2">

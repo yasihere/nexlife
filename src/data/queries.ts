@@ -3,7 +3,7 @@
 
 import Dexie from 'dexie';
 import { db } from './db';
-import type { Entry } from './types';
+import type { Entry, EntryType } from './types';
 
 /**
  * Today's tasks scheduled on `dayKey` — completed entries included, since
@@ -106,18 +106,24 @@ export async function getTemplateForSeries(seriesId: string): Promise<Entry | un
   return db.entries.get(seriesId);
 }
 
-/** Direct children of a subtask parent (CLAUDE.md §4's "2/5" progress). */
-export async function getChildren(parentId: string): Promise<Entry[]> {
+/**
+ * Direct children of a parent — subtasks (CLAUDE.md §4's "2/5" progress) and,
+ * since Phase 11, attached notes share the same parentId relationship. An
+ * optional type filter keeps the two from bleeding into each other's lists.
+ */
+export async function getChildren(parentId: string, type?: EntryType): Promise<Entry[]> {
   return db.entries
     .where('parentId')
     .equals(parentId)
-    .filter((e) => !e.deletedAt)
+    .filter((e) => !e.deletedAt && (type === undefined || e.type === type))
     .toArray();
 }
 
 /**
  * done/total child counts for many parents at once — one indexed query instead
- * of one per row, for rendering "2/5" across a whole list.
+ * of one per row, for rendering "2/5" across a whole list. Task children only
+ * — an attached note isn't a subtask, and would otherwise inflate the count
+ * (it has no completedAt, so it'd always read as "not done").
  */
 export async function getChildrenSummaryBatch(
   parentIds: string[]
@@ -128,7 +134,7 @@ export async function getChildrenSummaryBatch(
   const children = await db.entries
     .where('parentId')
     .anyOf(parentIds)
-    .filter((e) => !e.deletedAt)
+    .filter((e) => e.type === 'task' && !e.deletedAt)
     .toArray();
 
   for (const child of children) {
@@ -142,22 +148,18 @@ export async function getChildrenSummaryBatch(
 }
 
 /**
- * Linear scan across title, body and tags. Correct but not optimised — Phase 11
- * owns real indexed search once notes and the 10,000-entry / 50ms budget are in
- * scope for it.
+ * Every live entry, all types — the corpus src/lib/searchIndex.ts builds its
+ * in-memory index from (PROMPTS.md Phase 11). Superseded the old linear-scan
+ * search() that lived here through Phase 7 — see searchIndex.ts for why a
+ * real index instead of a scan.
  */
-export async function search(query: string): Promise<Entry[]> {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return db.entries
-    .filter(
-      (e) =>
-        !e.deletedAt &&
-        (e.title.toLowerCase().includes(q) ||
-          !!e.body?.toLowerCase().includes(q) ||
-          e.tags.some((t) => t.toLowerCase().includes(q)))
-    )
-    .toArray();
+export async function getSearchableEntries(): Promise<Entry[]> {
+  return db.entries.filter((e) => !e.deletedAt).toArray();
+}
+
+/** Notes not attached to anything else — the Notes screen's default list. */
+export async function getStandaloneNotes(): Promise<Entry[]> {
+  return db.entries.filter((e) => e.type === 'note' && !e.parentId && !e.deletedAt).toArray();
 }
 
 /** Every entry, deleted ones included — a faithful snapshot for backup export. */
