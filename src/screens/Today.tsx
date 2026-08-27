@@ -11,7 +11,7 @@ import TimeGrid, { ROW_HEIGHT } from '../components/TimeGrid';
 import FilterBar, { EMPTY_FILTERS, matchesFilters, type Filters } from '../components/FilterBar';
 import DevTools from '../components/DevTools';
 import BackupNag from '../components/BackupNag';
-import { getByDay, getById, getChildrenSummaryBatch } from '../data/queries';
+import { getByDay, getById, getChildrenSummaryBatch, getUnscheduled } from '../data/queries';
 import { complete, uncomplete } from '../data/entries';
 import { materializeDueOccurrences } from '../data/series';
 import { getSettings } from '../data/settings';
@@ -105,11 +105,28 @@ export default function Today() {
   // before the real query resolves.
   const rawEntries = useLiveQuery(() => getByDay(today), [today]);
   const entries = rawEntries ?? [];
-  const isLoading = rawEntries === undefined;
+
+  // Tasks with no dayKey at all — SPEC.md: "An 'Unscheduled' list below [the
+  // grid]", and Phase 5's own worked example ("call bank" -> unscheduled task,
+  // nothing else set). getByDay above can never return these (a missing
+  // dayKey excludes a row from the [type+dayKey] index entirely), so without
+  // this second query a task added with no recognised date is created
+  // successfully but never rendered anywhere on Today — the empty-state and
+  // "0 remaining" branches below would win outright, and the task is findable
+  // only via Notes' global search. This was a real bug, not by design.
+  const rawBacklog = useLiveQuery(() => getUnscheduled(), []);
+  const backlog = rawBacklog ?? [];
+  const isLoading = rawEntries === undefined || rawBacklog === undefined;
+
+  // Both queries feed the same screen — everything below (the remaining
+  // count, the empty state, the filter bar's tag list, subtask progress)
+  // should see backlog tasks exactly like today's own entries do.
+  const allEntries = entries.concat(backlog);
 
   // Reminders + the ongoing summary (PROMPTS.md Phase 8, #4 #5) — resynced on
   // every write to today's entries, on the FULL day regardless of the
-  // (ephemeral, UI-only) filter selection below.
+  // (ephemeral, UI-only) filter selection below. Backlog tasks have no
+  // startMin/dayKey to remind against, so reminders stay scoped to `entries`.
   useEffect(() => {
     if (isLoading) return;
     void syncNotifications(entries, settings?.notificationLeadMin);
@@ -117,14 +134,14 @@ export default function Today() {
   }, [rawEntries, settings?.notificationLeadMin]);
 
   const childSummaries =
-    useLiveQuery(() => getChildrenSummaryBatch(entries.map((e) => e.id)), [entries]) ??
+    useLiveQuery(() => getChildrenSummaryBatch(allEntries.map((e) => e.id)), [allEntries]) ??
     new Map<string, { done: number; total: number }>();
 
   const scheduled = entries.filter((e): e is Entry & { startMin: number } => e.startMin != null);
-  const unscheduled = entries.filter((e) => e.startMin == null);
+  const unscheduled = entries.filter((e) => e.startMin == null).concat(backlog);
   const filteredScheduled = scheduled.filter((e) => matchesFilters(e, filters));
   const filteredUnscheduled = unscheduled.filter((e) => matchesFilters(e, filters));
-  const availableTags = Array.from(new Set(entries.flatMap((e) => e.tags))).sort();
+  const availableTags = Array.from(new Set(allEntries.flatMap((e) => e.tags))).sort();
 
   const layout = layoutDay(
     filteredScheduled.map((e) => {
@@ -133,8 +150,8 @@ export default function Today() {
     })
   );
 
-  const remaining = entries.filter((e) => !e.completedAt).length;
-  const progress = entries.length === 0 ? 0 : (entries.length - remaining) / entries.length;
+  const remaining = allEntries.filter((e) => !e.completedAt).length;
+  const progress = allEntries.length === 0 ? 0 : (allEntries.length - remaining) / allEntries.length;
 
   function toggleComplete(entry: Entry): void {
     if (entry.completedAt) {
@@ -146,7 +163,7 @@ export default function Today() {
   }
 
   const HOURS = Array.from({ length: 24 }, (_, i) => (DAY_START_HOUR + i) % 24);
-  const nothingToday = !isLoading && entries.length === 0;
+  const nothingToday = !isLoading && allEntries.length === 0;
   const filteredOutEverything =
     !nothingToday && filteredScheduled.length === 0 && filteredUnscheduled.length === 0;
 
