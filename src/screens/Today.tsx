@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import NowLine from '../components/NowLine';
 import EntryRow from '../components/EntryRow';
@@ -11,12 +11,17 @@ import EntrySheet from '../components/EntrySheet';
 import UnscheduledList from '../components/UnscheduledList';
 import FilterBar, { EMPTY_FILTERS, matchesFilters, type Filters } from '../components/FilterBar';
 import DevTools from '../components/DevTools';
-import { getByDay, getById, getChildrenSummaryBatch, complete, uncomplete } from '../data/entries';
+import { getByDay, getById, getChildrenSummaryBatch } from '../data/queries';
+import { complete, uncomplete } from '../data/entries';
 import { materializeDueOccurrences } from '../data/series';
+import { getSettings } from '../data/settings';
+import BackupNag from '../components/BackupNag';
 import { todayKey, DEFAULT_DAY_START_HOUR } from '../lib/time';
 import { subscribeNow, now } from '../lib/clock';
 import { layoutDay } from '../lib/layout';
 import type { Entry } from '../data/types';
+
+const BACKUP_NAG_DAYS = 14;
 
 const ROW_HEIGHT = 64; // px per hour
 const GUTTER = 64; // px — hour-label column, wide enough for "12:27 PM"
@@ -39,6 +44,14 @@ export default function Today() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [nagDismissed, setNagDismissed] = useState(false);
+
+  const settings = useLiveQuery(() => getSettings());
+  const daysSinceExport = settings?.lastExportAt
+    ? differenceInCalendarDays(new Date(), new Date(settings.lastExportAt))
+    : null;
+  const showBackupNag =
+    !nagDismissed && settings !== undefined && (daysSinceExport === null || daysSinceExport > BACKUP_NAG_DAYS);
 
   // A live query, not the Entry object captured at open-time — so if something
   // in the sheet itself changes the entry (e.g. the subtask "Complete" nudge),
@@ -122,6 +135,10 @@ export default function Today() {
           <div className="h-px bg-paper/60" style={{ width: `${progress * 100}%` }} />
         </div>
       </header>
+
+      {showBackupNag && (
+        <BackupNag daysSinceExport={daysSinceExport} onDismiss={() => setNagDismissed(true)} />
+      )}
 
       {!nothingToday && (
         <FilterBar availableTags={availableTags} filters={filters} onChange={setFilters} />

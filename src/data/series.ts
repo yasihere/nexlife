@@ -4,7 +4,8 @@
 // touches the database (CLAUDE.md §4; settings.ts is the one other, narrower
 // exception, for a genuinely distinct concern).
 
-import { create, update, getRecurringTemplates, getSeriesOccurrences, getTemplateForSeries } from './entries';
+import { create, update } from './entries';
+import { getRecurringTemplates, getSeriesOccurrences, getTemplateForSeries } from './queries';
 import { expandSeries } from './recurrence';
 import type { Entry } from './types';
 

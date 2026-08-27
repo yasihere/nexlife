@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getChildren, create, complete, uncomplete } from '../data/entries';
+import { getChildren } from '../data/queries';
+import { create, complete, uncomplete } from '../data/entries';
 
 interface SubtaskListProps {
   parentId: string;
