@@ -50,7 +50,7 @@ export default function Log() {
 
       {logs.length === 0 ? (
         <EmptyState
-          message="Nothing logged yet. Try '500 groceries #food' or '72.5kg' in quick add."
+          message="Nothing logged yet. Try '₹500 groceries #food' or '72.5kg' in quick add."
           actionLabel="Add task"
           onAction={goAddTask}
         />

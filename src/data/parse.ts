@@ -38,6 +38,18 @@ const PRIORITY_VALUE: Record<string, 0 | 1 | 2 | 3> = { low: 1, med: 2, high: 3 
 // trailing "s" in the title.
 const UNIT_SUFFIX_RE = /\b(\d+(?:\.\d+)?)(kg|steps|ml|l|hrs|hr|h)\b/i;
 
+// Money now requires an explicit currency marker (₹ / Rs, either side of the
+// number). Originally a *bare* leading number ("500 groceries") was enough —
+// but that's indistinguishable from any quantity-first task title ("10
+// pushups", "3 loads of laundry"), which silently became a money log with the
+// quantity stripped into `amount` and the activity left as `title`. That's
+// exactly the kind of silent guess PROMPTS.md's Phase 5 rule #3 rules out for
+// dates ("ambiguity is never silently guessed") — it just wasn't applied here
+// when Phase 10 added logs. Fixed per explicit product decision: a plain
+// number alone is always part of a task title now.
+const CURRENCY_PREFIX_RE = /(?:₹|rs\.?)\s*(\d+(?:\.\d+)?)\b/i;
+const CURRENCY_SUFFIX_RE = /\b(\d+(?:\.\d+)?)\s*rs\b/i;
+
 // Same canonical unit set SPEC.md's Entry.unit comment already declared
 // ('INR' | 'kg' | 'steps' | 'ml' | 'hrs') — l/L collapse into ml (×1000) and
 // h/hr collapse into hrs, rather than fragmenting a unit by input spelling.
@@ -100,12 +112,24 @@ interface ParsedLog {
 }
 
 /**
- * "500 groceries" -> money (bare leading number, INR); "72.5kg" -> weight (a
- * number with a recognised unit suffix, anywhere in the text). A bare number
- * immediately followed by an UNRECOGNISED suffix ("500km") is deliberately
- * not treated as money — that's more likely a typo'd unit than a spend.
+ * "₹500 groceries" / "500rs groceries" -> money (an explicit currency marker
+ * required — see CURRENCY_PREFIX_RE/CURRENCY_SUFFIX_RE above); "72.5kg" ->
+ * weight (a number with a recognised unit suffix, anywhere in the text). A
+ * number immediately followed by an UNRECOGNISED suffix ("500km") is
+ * deliberately not treated as a log — that's more likely a typo'd unit than
+ * a real measurement.
  */
 function parseLog(text: string): ParsedLog | null {
+  const currencyMatch = text.match(CURRENCY_PREFIX_RE) ?? text.match(CURRENCY_SUFFIX_RE);
+  if (currencyMatch) {
+    const title = (
+      text.slice(0, currencyMatch.index) + text.slice(currencyMatch.index! + currencyMatch[0].length)
+    )
+      .replace(/\s+/g, ' ')
+      .trim();
+    return { amount: parseFloat(currencyMatch[1]), unit: DEFAULT_CURRENCY, title };
+  }
+
   const suffixMatch = text.match(UNIT_SUFFIX_RE);
   if (suffixMatch) {
     const rawAmount = parseFloat(suffixMatch[1]);
@@ -118,15 +142,6 @@ function parseLog(text: string): ParsedLog | null {
       .replace(/\s+/g, ' ')
       .trim();
     return { amount, unit, title };
-  }
-
-  const leadingNumberMatch = text.match(/^(\d+(?:\.\d+)?)(?=\s|$)/);
-  if (leadingNumberMatch) {
-    return {
-      amount: parseFloat(leadingNumberMatch[1]),
-      unit: DEFAULT_CURRENCY,
-      title: text.slice(leadingNumberMatch[0].length).trim(),
-    };
   }
 
   return null;

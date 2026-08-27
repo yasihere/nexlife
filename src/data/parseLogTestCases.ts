@@ -32,9 +32,9 @@ interface TestCase {
 
 const cases: TestCase[] = [
   {
-    name: 'log — money via bare leading number: 500 groceries #food',
+    name: 'log — money, currency prefix: ₹500 groceries #food',
     run: async () => {
-      const r = await parseQuickAdd('500 groceries #food', REF);
+      const r = await parseQuickAdd('₹500 groceries #food', REF);
       const f: string[] = [];
       expectEqual(r.type, 'log', 'type', f);
       expectEqual(r.amount, 500, 'amount', f);
@@ -42,6 +42,34 @@ const cases: TestCase[] = [
       expectEqual(r.title, 'groceries', 'title', f);
       expectEqual(r.tags.join(','), 'food', 'tags', f);
       expectEqual(r.dayKey, toDayKey(REF), 'dayKey', f);
+      return f;
+    },
+  },
+  {
+    name: 'log — money, currency suffix: 500rs groceries #food',
+    run: async () => {
+      const r = await parseQuickAdd('500rs groceries #food', REF);
+      const f: string[] = [];
+      expectEqual(r.type, 'log', 'type', f);
+      expectEqual(r.amount, 500, 'amount', f);
+      expectEqual(r.unit, 'INR', 'unit', f);
+      expectEqual(r.title, 'groceries', 'title', f);
+      return f;
+    },
+  },
+  {
+    // Regression guard: a bare leading number used to be enough for a money
+    // log ("500 groceries"), which meant any quantity-first task title
+    // ("10 pushups") was silently swallowed into a nonsense money entry with
+    // the quantity stripped out — the task then appeared nowhere a user would
+    // look for it. Money now requires an explicit currency marker; a bare
+    // number is always just part of a task title.
+    name: 'a bare leading number is a task, not a silent money log: 10 pushups',
+    run: async () => {
+      const r = await parseQuickAdd('10 pushups', REF);
+      const f: string[] = [];
+      expectEqual(r.type, 'task', 'type', f);
+      expectEqual(r.title, '10 pushups', 'title', f);
       return f;
     },
   },
