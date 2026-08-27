@@ -42,16 +42,30 @@ export default function QuickAdd({ onClose }: QuickAddProps) {
     // debounce window, `preview` can still be one keystroke stale.
     const result = await parseQuickAdd(text);
 
-    await create({
-      type: 'task',
-      title: result.title || trimmed,
-      tags: result.tags,
-      priority: result.priority,
-      estimateMin: result.estimateMin,
-      energy: result.energy,
-      dayKey: result.dayKey,
-      startMin: result.startMin,
-    });
+    if (result.type === 'log') {
+      // A log is a timestamped number with a unit (PROMPTS.md Phase 10) — no
+      // priority/energy/estimate, those don't mean anything for a log.
+      await create({
+        type: 'log',
+        title: result.title,
+        tags: result.tags,
+        priority: 0,
+        amount: result.amount,
+        unit: result.unit,
+        dayKey: result.dayKey,
+      });
+    } else {
+      await create({
+        type: 'task',
+        title: result.title || trimmed,
+        tags: result.tags,
+        priority: result.priority,
+        estimateMin: result.estimateMin,
+        energy: result.energy,
+        dayKey: result.dayKey,
+        startMin: result.startMin,
+      });
+    }
     onClose();
   }
 

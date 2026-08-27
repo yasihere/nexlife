@@ -9,11 +9,12 @@ export default function DevTools() {
   const [summary, setSummary] = useState<string | null>(null);
 
   async function runTests(): Promise<void> {
-    const [{ runParseTests }, { runRecurrenceTests }] = await Promise.all([
+    const [{ runParseTests }, { runRecurrenceTests }, { runParseLogTests }] = await Promise.all([
       import('../data/parseTestCases'),
       import('../data/recurrenceTestCases'),
+      import('../data/parseLogTestCases'),
     ]);
-    const results = [...(await runParseTests()), ...runRecurrenceTests()];
+    const results = [...(await runParseTests()), ...runRecurrenceTests(), ...(await runParseLogTests())];
     const failed = results.filter((r) => r.failures.length > 0);
     setSummary(`${results.length - failed.length}/${results.length} passed`);
     if (failed.length) {

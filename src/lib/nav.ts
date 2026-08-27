@@ -6,7 +6,7 @@
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 
-export type Screen = 'today' | 'plan' | 'review' | 'settings' | 'triage';
+export type Screen = 'today' | 'plan' | 'review' | 'log' | 'settings' | 'triage';
 
 const stack: Screen[] = ['today'];
 const listeners = new Set<() => void>();

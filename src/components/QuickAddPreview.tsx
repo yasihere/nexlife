@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import type { ReactNode } from 'react';
 import type { ParsedQuickAdd } from '../data/parse';
+import { formatLogAmount } from '../lib/logAggregation';
 
 interface QuickAddPreviewProps {
   parsed: ParsedQuickAdd | null;
@@ -29,6 +30,18 @@ export default function QuickAddPreview({ parsed, rawInput }: QuickAddPreviewPro
     return (
       <div className="flex flex-wrap gap-2">
         <Chip>…</Chip>
+      </div>
+    );
+  }
+
+  if (parsed.type === 'log') {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <Chip>{formatLogAmount(parsed.unit!, parsed.amount!)}</Chip>
+        {parsed.title && <Chip>{parsed.title}</Chip>}
+        {parsed.tags.map((tag) => (
+          <Chip key={tag}>#{tag}</Chip>
+        ))}
       </div>
     );
   }

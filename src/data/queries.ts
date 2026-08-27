@@ -6,15 +6,19 @@ import { db } from './db';
 import type { Entry } from './types';
 
 /**
- * Everything scheduled on `dayKey` — completed entries included, since Today
- * renders their struck-through state rather than hiding them. Dropped and
- * soft-deleted entries are excluded.
+ * Today's tasks scheduled on `dayKey` — completed entries included, since
+ * Today renders their struck-through state rather than hiding them. Dropped
+ * and soft-deleted entries are excluded. Task-only: harmless to omit before
+ * Phase 10, since only tasks existed for real — now that logs exist too, a
+ * "500 groceries" entry would otherwise show up in Today's Unscheduled list
+ * next to actual tasks, which is exactly the bug getUnscheduled() already
+ * guarded against.
  */
 export async function getByDay(dayKey: string): Promise<Entry[]> {
   return db.entries
     .where('dayKey')
     .equals(dayKey)
-    .filter((e) => !e.droppedAt && !e.deletedAt)
+    .filter((e) => e.type === 'task' && !e.droppedAt && !e.deletedAt)
     .toArray();
 }
 
@@ -164,4 +168,18 @@ export async function getAllEntries(): Promise<Entry[]> {
 /** Total entry count, excluding soft-deleted — Settings' "N entries". */
 export async function getEntryCount(): Promise<number> {
   return db.entries.filter((e) => !e.deletedAt).count();
+}
+
+/**
+ * Every log (money/health) entry — the Log screen aggregates client-side from
+ * this, same reasoning as getEntryCount: personal-scale data, no need for a
+ * more targeted query. Reuses the [type+dayKey] index across its full range
+ * rather than a plain type index — no schema bump needed.
+ */
+export async function getAllLogs(): Promise<Entry[]> {
+  return db.entries
+    .where('[type+dayKey]')
+    .between(['log', Dexie.minKey], ['log', Dexie.maxKey])
+    .filter((e) => !e.deletedAt)
+    .toArray();
 }

@@ -151,6 +151,93 @@ export async function seed(): Promise<void> {
     });
   });
 
+  // Money logs — 60 days back, so this-month vs last-month growth (Phase 10)
+  // has something real to compare.
+  const MONEY_TAGS: Record<string, string[]> = {
+    food: ['Groceries', 'Lunch', 'Coffee'],
+    transport: ['Cab', 'Fuel', 'Metro card'],
+    bills: ['Electricity bill', 'Internet bill', 'Phone recharge'],
+    fun: ['Movie', 'Concert ticket', 'Books'],
+  };
+  const moneyTagNames = Object.keys(MONEY_TAGS);
+  for (let i = 60; i >= 0; i--) {
+    if (Math.random() < 0.5) continue; // not every day has a spend
+    const tag = randomOf(moneyTagNames);
+    rows.push({
+      id: crypto.randomUUID(),
+      type: 'log',
+      title: randomOf(MONEY_TAGS[tag]),
+      dayKey: addDays(today, -i),
+      amount: 50 + Math.floor(Math.random() * 1950),
+      unit: 'INR',
+      tags: [tag],
+      priority: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Health logs — daily-ish for the last 30 days, for a real sparkline.
+  for (let i = 30; i >= 0; i--) {
+    const day = addDays(today, -i);
+    if (Math.random() < 0.85) {
+      rows.push({
+        id: crypto.randomUUID(),
+        type: 'log',
+        title: '',
+        dayKey: day,
+        amount: Math.round((71 + Math.random() * 3) * 10) / 10,
+        unit: 'kg',
+        tags: [],
+        priority: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    if (Math.random() < 0.8) {
+      rows.push({
+        id: crypto.randomUUID(),
+        type: 'log',
+        title: '',
+        dayKey: day,
+        amount: 3000 + Math.floor(Math.random() * 9000),
+        unit: 'steps',
+        tags: [],
+        priority: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    if (Math.random() < 0.7) {
+      rows.push({
+        id: crypto.randomUUID(),
+        type: 'log',
+        title: '',
+        dayKey: day,
+        amount: 500 + Math.floor(Math.random() * 2500),
+        unit: 'ml',
+        tags: [],
+        priority: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    if (Math.random() < 0.75) {
+      rows.push({
+        id: crypto.randomUUID(),
+        type: 'log',
+        title: '',
+        dayKey: day,
+        amount: Math.round((5 + Math.random() * 4) * 10) / 10,
+        unit: 'hrs',
+        tags: [],
+        priority: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
   await db.entries.bulkAdd(rows);
   // eslint-disable-next-line no-console
   console.log(`Seeded ${rows.length} entries.`);
