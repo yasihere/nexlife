@@ -2,7 +2,14 @@
 // One entity, five lenses: tasks, habits, logs and notes are the same Entry shape
 // with different fields populated. See SPEC.md "The architectural bet".
 
-export type EntryType = 'task' | 'habit' | 'log' | 'note';
+export type EntryType = 'task' | 'habit' | 'log' | 'note' | 'goal';
+
+/** week/month/year cover the recurring planning horizons; longterm is the
+ *  ~5-year band SPEC's "five lenses" line never named individually, and
+ *  lifetime never expires. Goals don't auto-renew each period (v1, by explicit
+ *  product decision) — a "weekly" goal is one goal you track and eventually
+ *  finish or drop, not a series regenerated every Monday like a recurring task. */
+export type GoalPeriod = 'week' | 'month' | 'year' | 'longterm' | 'lifetime';
 
 export interface Entry {
   id: string; // crypto.randomUUID() — never an auto-increment int (CLAUDE.md §7)
@@ -25,6 +32,16 @@ export interface Entry {
   // measurement — drives money AND health
   amount?: number;
   unit?: string; // 'INR' | 'kg' | 'steps' | 'ml' | 'hrs' ...
+
+  // goals — a numeric target you check in on manually. Deliberately separate
+  // from amount/unit above: amount is a single timestamped measurement (one
+  // log row per reading), while a goal accumulates one running `progress`
+  // number toward one `target` over its whole life. `unit` is reused as the
+  // goal's free-text label ("books", "kg", "₹") — it means the same thing
+  // there as it already does for logs.
+  period?: GoalPeriod;
+  target?: number;
+  progress?: number;
 
   // organisation
   tags: string[];
@@ -75,4 +92,8 @@ export function isLog(e: Entry): boolean {
 
 export function isNote(e: Entry): boolean {
   return e.type === 'note';
+}
+
+export function isGoal(e: Entry): boolean {
+  return e.type === 'goal';
 }

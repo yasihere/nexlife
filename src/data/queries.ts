@@ -172,6 +172,22 @@ export async function getSearchableEntries(): Promise<Entry[]> {
   return db.entries.filter((e) => !e.deletedAt).toArray();
 }
 
+/**
+ * Every active goal — dropped (abandoned) and deleted excluded. Goals are
+ * fully passive by design (no Triage-style nudging), so there's no "review
+ * abandoned goals" flow to preserve them for; hiding dropped ones outright
+ * keeps the Goals screen showing only what's still being chased. Reuses the
+ * [type+dayKey] index across its full range, same reasoning as getAllLogs —
+ * no new index needed for a personal-scale table.
+ */
+export async function getAllGoals(): Promise<Entry[]> {
+  return db.entries
+    .where('[type+dayKey]')
+    .between(['goal', Dexie.minKey], ['goal', Dexie.maxKey])
+    .filter((e) => !e.deletedAt && !e.droppedAt)
+    .toArray();
+}
+
 /** Notes not attached to anything else — the Notes screen's default list. */
 export async function getStandaloneNotes(): Promise<Entry[]> {
   return db.entries.filter((e) => e.type === 'note' && !e.parentId && !e.deletedAt).toArray();

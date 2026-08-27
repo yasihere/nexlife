@@ -243,6 +243,32 @@ export async function seed(): Promise<void> {
     }
   }
 
+  // One goal per timescale, at varying progress — including one already
+  // achieved, to exercise the dim+strikethrough "removal, not colour" state.
+  const GOALS: { title: string; period: Entry['period']; target: number; progress: number; unit: string }[] = [
+    { title: 'Workouts this week', period: 'week', target: 4, progress: 2, unit: 'sessions' },
+    { title: 'Read', period: 'month', target: 3, progress: 3, unit: 'books' },
+    { title: 'Save', period: 'year', target: 200000, progress: 64000, unit: 'INR' },
+    { title: 'Run a marathon', period: 'longterm', target: 1, progress: 0, unit: '' },
+    { title: 'Visit every continent', period: 'lifetime', target: 7, progress: 2, unit: 'continents' },
+  ];
+  for (const g of GOALS) {
+    rows.push({
+      id: crypto.randomUUID(),
+      type: 'goal',
+      title: g.title,
+      dayKey: today,
+      period: g.period,
+      target: g.target,
+      progress: g.progress,
+      unit: g.unit || undefined,
+      tags: [],
+      priority: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
   await db.entries.bulkAdd(rows);
   // eslint-disable-next-line no-console
   console.log(`Seeded ${rows.length} entries.`);

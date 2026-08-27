@@ -7,6 +7,7 @@ const TABS: { screen: Screen; label: string }[] = [
   { screen: 'review', label: 'Review' },
   { screen: 'log', label: 'Log' },
   { screen: 'notes', label: 'Notes' },
+  { screen: 'goals', label: 'Goals' },
   { screen: 'settings', label: 'Settings' },
 ];
 

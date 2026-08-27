@@ -19,7 +19,12 @@ export interface BackupFile {
   settings: Settings;
 }
 
-const ENTRY_TYPES: EntryType[] = ['task', 'habit', 'log', 'note'];
+// Deliberately every member of EntryType, spelled out rather than inferred —
+// a Record forces a compile error the moment a new type is added and this
+// list isn't updated too (exactly what caught this array missing 'goal' when
+// Goals was added: a plain array assigned to EntryType[] type-checks fine
+// even when incomplete, since a subset is still a valid EntryType[]).
+const ENTRY_TYPE_SET: Record<EntryType, true> = { task: true, habit: true, log: true, note: true, goal: true };
 
 function isValidEntry(x: unknown): x is Entry {
   if (typeof x !== 'object' || x === null) return false;
@@ -27,7 +32,7 @@ function isValidEntry(x: unknown): x is Entry {
   return (
     typeof e.id === 'string' &&
     typeof e.type === 'string' &&
-    ENTRY_TYPES.includes(e.type as EntryType) &&
+    Object.prototype.hasOwnProperty.call(ENTRY_TYPE_SET, e.type) &&
     typeof e.title === 'string' &&
     Array.isArray(e.tags) &&
     typeof e.priority === 'number' &&

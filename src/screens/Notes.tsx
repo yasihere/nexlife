@@ -13,6 +13,7 @@ const TYPE_LABEL: Record<Entry['type'], string> = {
   habit: 'Habit',
   log: 'Log',
   note: 'Note',
+  goal: 'Goal',
 };
 
 /**
