@@ -47,6 +47,11 @@ export async function seed(): Promise<void> {
     const count = 6 + Math.floor(Math.random() * 5);
     for (let j = 0; j < count; j++) {
       const completed = Math.random() < 0.85;
+      // A real scheduling-to-completion gap (1-72h before completion) — Phase
+      // 12's Review average-gap metric needs one to have anything to measure;
+      // without it every seeded task's createdAt/completedAt would collapse
+      // to the same instant and the average would read a meaningless "0.0".
+      const createdAt = completed ? now - (1 + Math.random() * 71) * 60 * 60 * 1000 : now;
       rows.push({
         id: crypto.randomUUID(),
         type: 'task',
@@ -57,7 +62,7 @@ export async function seed(): Promise<void> {
         completedAt: completed ? now : undefined,
         tags: randomTags(),
         priority: randomPriority(),
-        createdAt: now,
+        createdAt,
         updatedAt: now,
       });
     }

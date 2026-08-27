@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import BottomNav from './components/BottomNav';
 import { subscribe, current, replace } from './lib/nav';
 import { getOverdue } from './data/queries';
 import { getSettings } from './data/settings';
@@ -13,24 +12,12 @@ const Triage = lazy(() => import('./screens/Triage'));
 const Settings = lazy(() => import('./screens/Settings'));
 const Log = lazy(() => import('./screens/Log'));
 const Notes = lazy(() => import('./screens/Notes'));
+const Plan = lazy(() => import('./screens/Plan'));
+const Review = lazy(() => import('./screens/Review'));
 
 // Same background as the gate's own loading frame — a lazy chunk still
 // fetching should never show a blank or mismatched-colour flash.
 const screenFallback = <div className="h-dvh bg-void" />;
-
-function ComingSoon({ title }: { title: string }) {
-  return (
-    <div className="mx-auto flex h-dvh max-w-[430px] flex-col bg-void">
-      <header className="px-4 pb-3 pt-[max(16px,env(safe-area-inset-top))]">
-        <h1 className="text-heading text-paper">{title}</h1>
-      </header>
-      <div className="flex flex-1 items-center justify-center px-8 text-center text-title text-muted">
-        Not built yet.
-      </div>
-      <BottomNav />
-    </div>
-  );
-}
 
 // The gate (Triage-before-Today) resolves once per app-open by pushing nav.ts
 // into the 'triage' screen directly, rather than keeping a second, parallel
@@ -65,9 +52,9 @@ export default function App() {
           case 'notes':
             return <Notes />;
           case 'plan':
-            return <ComingSoon title="Plan" />;
+            return <Plan />;
           case 'review':
-            return <ComingSoon title="Review" />;
+            return <Review />;
           default:
             return <Today />;
         }

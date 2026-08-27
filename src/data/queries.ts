@@ -67,6 +67,21 @@ export async function getDaySummary(
 }
 
 /**
+ * Every task dated `fromDayKey`..`toDayKey` (inclusive) — deleted excluded,
+ * but dropped and completed both included. Deliberately raw, same shape as
+ * getDaySummary above: Plan.tsx (Phase 12) filters out dropped tasks itself
+ * (they shouldn't show as "still scheduled"), while Review.tsx needs them
+ * present to compute its dropped-count and tag-dropped-most.
+ */
+export async function getByDayRange(fromDayKey: string, toDayKey: string): Promise<Entry[]> {
+  return db.entries
+    .where('[type+dayKey]')
+    .between(['task', fromDayKey], ['task', toDayKey], true, true)
+    .filter((e) => !e.deletedAt)
+    .toArray();
+}
+
+/**
  * Tasks with no dayKey at all. Not reachable via the [type+dayKey] index (a
  * missing dayKey excludes the record from it entirely), so this is a
  * full-collection filter — acceptable at the 10,000-entry budget since it isn't
