@@ -8,6 +8,7 @@ import { todayKey } from '../lib/time';
 import { replace } from '../lib/nav';
 import { setPendingAddTask } from '../lib/launchIntent';
 import Sparkline from '../components/Sparkline';
+import TagChip from '../components/TagChip';
 import BudgetRow from '../components/BudgetRow';
 import BudgetForm from '../components/BudgetForm';
 import BottomNav from '../components/BottomNav';
@@ -104,14 +105,22 @@ export default function Log() {
               </span>
               <ul className="flex flex-col gap-1">
                 {tagTotals.map(({ tag, total }) => (
-                  <li key={tag} className="flex items-center justify-between">
-                    <span className="text-title text-paper">#{tag}</span>
+                  <li key={tag} className="flex min-h-[44px] items-center justify-between">
+                    <TagChip tag={tag} />
                     <span className="tabular-nums text-title text-paper">{formatLogAmount('INR', total)}</span>
                   </li>
                 ))}
               </ul>
               {growing.length > 0 && (
-                <p className="text-title text-muted">Growing: {growing.map((g) => `#${g.tag}`).join(', ')}</p>
+                <div className="flex flex-wrap items-center gap-x-1 text-title text-muted">
+                  <span>Growing:</span>
+                  {growing.map((g, i) => (
+                    <span key={g.tag} className="inline-flex items-center">
+                      <TagChip tag={g.tag} />
+                      {i < growing.length - 1 && ','}
+                    </span>
+                  ))}
+                </div>
               )}
             </section>
           )}

@@ -15,6 +15,7 @@ const Notes = lazy(() => import('./screens/Notes'));
 const Plan = lazy(() => import('./screens/Plan'));
 const Review = lazy(() => import('./screens/Review'));
 const Goals = lazy(() => import('./screens/Goals'));
+const TagView = lazy(() => import('./screens/TagView'));
 
 // Same background as the gate's own loading frame — a lazy chunk still
 // fetching should never show a blank or mismatched-colour flash.
@@ -58,6 +59,8 @@ export default function App() {
             return <Review />;
           case 'goals':
             return <Goals />;
+          case 'tag':
+            return <TagView />;
           default:
             return <Today />;
         }

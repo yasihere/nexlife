@@ -201,6 +201,21 @@ export async function getAllBudgets(): Promise<Entry[]> {
     .toArray();
 }
 
+/**
+ * Every active entry carrying `tag`, most recently updated first — the
+ * destination when tapping a #tag chip anywhere in the app (TagView.tsx).
+ * Uses the `*tags` multi-entry index (already built for Phase 6 filters and
+ * Phase 10 money-by-tag), so this is an index lookup, not a table scan.
+ */
+export async function getByTag(tag: string): Promise<Entry[]> {
+  const rows = await db.entries
+    .where('tags')
+    .equals(tag)
+    .filter((e) => !e.deletedAt)
+    .toArray();
+  return rows.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
 /** Notes not attached to anything else — the Notes screen's default list. */
 export async function getStandaloneNotes(): Promise<Entry[]> {
   return db.entries.filter((e) => e.type === 'note' && !e.parentId && !e.deletedAt).toArray();
