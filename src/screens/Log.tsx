@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getAllBudgets, getAllLogs } from '../data/queries';
-import { softDelete } from '../data/entries';
 import { groupLogsByUnit, moneyByTag, topGrowingTags, formatLogAmount } from '../lib/logAggregation';
 import { allBudgetStatuses } from '../lib/budgetAggregation';
 import { todayKey } from '../lib/time';
@@ -11,6 +10,7 @@ import Sparkline from '../components/Sparkline';
 import TagChip from '../components/TagChip';
 import BudgetRow from '../components/BudgetRow';
 import BudgetForm from '../components/BudgetForm';
+import LogForm from '../components/LogForm';
 import BottomNav from '../components/BottomNav';
 import Sheet from '../components/Sheet';
 import EmptyState from '../components/EmptyState';
@@ -32,12 +32,13 @@ function goAddTask(): void {
 }
 
 /** Grouped by unit, this-week/this-month totals, a sparkline per unit, and a
- *  money-by-tag breakdown (PROMPTS.md Phase 10). Read-mostly by design — no
- *  edit UI, just tap-to-drop for fixing a mis-logged entry. */
+ *  money-by-tag breakdown (PROMPTS.md Phase 10). Tap a recent entry to edit
+ *  or delete it (LogForm) — otherwise read-mostly, no quick-add here. */
 export default function Log() {
   const today = todayKey();
   const [budgetSheetEntry, setBudgetSheetEntry] = useState<Entry | null>(null);
   const [addingBudget, setAddingBudget] = useState(false);
+  const [editingLog, setEditingLog] = useState<Entry | null>(null);
   const logs = useLiveQuery(() => getAllLogs()) ?? [];
   const budgets = useLiveQuery(() => getAllBudgets()) ?? [];
   const units = groupLogsByUnit(logs, today);
@@ -152,7 +153,7 @@ export default function Log() {
                     <li key={entry.id}>
                       <button
                         type="button"
-                        onClick={() => void softDelete(entry.id)}
+                        onClick={() => setEditingLog(entry)}
                         className="flex min-h-[44px] w-full items-center justify-between rounded bg-panel px-3 text-left"
                       >
                         <span className="min-w-0 truncate text-title text-paper">
@@ -180,6 +181,10 @@ export default function Log() {
           otherBudgets={budgets.filter((b) => b.id !== budgetSheetEntry?.id)}
           onClose={closeBudgetSheet}
         />
+      </Sheet>
+
+      <Sheet open={!!editingLog} onClose={() => setEditingLog(null)}>
+        {editingLog && <LogForm entry={editingLog} onClose={() => setEditingLog(null)} />}
       </Sheet>
     </div>
   );
