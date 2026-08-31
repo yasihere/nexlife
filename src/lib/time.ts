@@ -47,3 +47,20 @@ export function nextWeekKey(key: string): string {
   const daysUntilMonday = (1 - dow + 7) % 7 || 7;
   return addDays(key, daysUntilMonday);
 }
+
+/** startMin (minutes from midnight) -> an `<input type="time">` value. */
+export function minutesToTimeInput(min: number | undefined): string {
+  if (min == null) return '';
+  const h = Math.floor(min / 60)
+    .toString()
+    .padStart(2, '0');
+  const m = (min % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+/** The inverse of minutesToTimeInput. Empty string (the field cleared) -> undefined. */
+export function timeInputToMinutes(value: string): number | undefined {
+  if (!value) return undefined;
+  const [h, m] = value.split(':').map(Number);
+  return h * 60 + m;
+}

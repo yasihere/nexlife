@@ -25,6 +25,30 @@ function isScheduled(rule: Recurrence): rule is ScheduledRecurrence {
   return rule.kind !== 'timesPerWeek';
 }
 
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function ordinal(n: number): string {
+  if (n % 10 === 1 && n % 100 !== 11) return 'st';
+  if (n % 10 === 2 && n % 100 !== 12) return 'nd';
+  if (n % 10 === 3 && n % 100 !== 13) return 'rd';
+  return 'th';
+}
+
+/** EntrySheet's read-only summary for an already-recurring entry — plain
+ *  English, same rule shape nextOccurrence/expandSeries above work from. */
+export function describeRecurrence(rule: Recurrence): string {
+  if (rule.kind === 'daily') return rule.every === 1 ? 'Repeats daily' : `Repeats every ${rule.every} days`;
+  if (rule.kind === 'weekly') {
+    const days = rule.weekdays.map((d) => WEEKDAY_LABELS[d]).join(', ');
+    return rule.every === 1 ? `Repeats weekly on ${days}` : `Repeats every ${rule.every} weeks on ${days}`;
+  }
+  if (rule.kind === 'monthly') {
+    const day = `${rule.dayOfMonth}${ordinal(rule.dayOfMonth)}`;
+    return rule.every === 1 ? `Repeats monthly on the ${day}` : `Repeats every ${rule.every} months on the ${day}`;
+  }
+  return `${rule.count}x a week`;
+}
+
 /** Yields occurrence dayKeys in ascending order, starting at `rule.startDay`. */
 function* iterate(rule: ScheduledRecurrence): Generator<string> {
   const step = Math.max(1, Math.floor(rule.every));
@@ -37,6 +61,21 @@ function* iterate(rule: ScheduledRecurrence): Generator<string> {
       d = addDaysToDate(d, step);
     }
   } else if (rule.kind === 'weekly') {
+    // An empty weekdays list can never match `rule.weekdays.includes(getDay(d))`
+    // below — without this, the loop would walk forward one day at a time,
+    // forever, never once hitting the `yield` that lets a caller's own
+    // iteration-count check (MAX_ITERATIONS) run. That check lives in the
+    // *consumer* (nextOccurrence/expandSeries), which only gets a turn once
+    // per yielded value — so a generator that never yields never returns
+    // control at all. This was a real bug: a task saved with "Repeat weekly"
+    // and no day picked (RecurrenceEditor's own default before a day is
+    // tapped) freezes the entire app's main thread the moment
+    // materializeDueOccurrences touches it, on every single launch, since the
+    // JS engine is single-threaded and this generator is a plain synchronous
+    // `while(true)` with no `await` to yield control back. See
+    // RecurrenceEditor.tsx / EntrySheet.tsx for the save-time guard that stops
+    // this rule shape from being created again.
+    if (rule.weekdays.length === 0) return;
     const anchorWeekStart = startOfWeek(start);
     let d = start;
     while (true) {

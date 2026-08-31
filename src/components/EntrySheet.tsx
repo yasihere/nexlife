@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { complete, drop } from '../data/entries';
+import { complete, drop, update } from '../data/entries';
 import { updateOccurrence } from '../data/series';
+import { describeRecurrence } from '../data/recurrence';
 import { hapticTick } from '../lib/native';
-import { todayKey } from '../lib/time';
+import { todayKey, minutesToTimeInput, timeInputToMinutes } from '../lib/time';
 import type { Entry, Recurrence } from '../data/types';
 import SubtaskList from './SubtaskList';
 import AttachedNotes from './AttachedNotes';
@@ -14,27 +15,6 @@ interface EntrySheetProps {
 }
 
 const PRIORITY_LABEL = ['None', 'Low', 'Med', 'High'] as const;
-const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function ordinal(n: number): string {
-  if (n % 10 === 1 && n % 100 !== 11) return 'st';
-  if (n % 10 === 2 && n % 100 !== 12) return 'nd';
-  if (n % 10 === 3 && n % 100 !== 13) return 'rd';
-  return 'th';
-}
-
-function describeRecurrence(rule: Recurrence): string {
-  if (rule.kind === 'daily') return rule.every === 1 ? 'Repeats daily' : `Repeats every ${rule.every} days`;
-  if (rule.kind === 'weekly') {
-    const days = rule.weekdays.map((d) => WEEKDAY_LABELS[d]).join(', ');
-    return rule.every === 1 ? `Repeats weekly on ${days}` : `Repeats every ${rule.every} weeks on ${days}`;
-  }
-  if (rule.kind === 'monthly') {
-    const day = `${rule.dayOfMonth}${ordinal(rule.dayOfMonth)}`;
-    return rule.every === 1 ? `Repeats monthly on the ${day}` : `Repeats every ${rule.every} months on the ${day}`;
-  }
-  return `${rule.count}x a week`;
-}
 
 function buildRecurrence(draft: RepeatDraft, startDay: string): Recurrence {
   if (draft.kind === 'daily') return { kind: 'daily', every: draft.every, startDay };
@@ -55,6 +35,11 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
   const [confirmingScope, setConfirmingScope] = useState(false);
 
   const isRecurring = !!entry.seriesId;
+  // A weekly repeat with no day picked yet (RecurrenceEditor's own starting
+  // state) matches nothing, ever — recurrence.ts now handles that shape
+  // safely if it somehow got saved, but Save should just refuse to create it
+  // in the first place rather than silently drop the rule.
+  const repeatInvalid = !!repeatDraft && repeatDraft.kind === 'weekly' && repeatDraft.weekdays.length === 0;
 
   function addTag(): void {
     const t = tagDraft.trim().toLowerCase();
@@ -87,6 +72,30 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
     onClose();
   }
 
+  // Date/time apply immediately, independent of the Save button below — same
+  // "acts right away" pattern as Drop, not bundled into buildChanges()/commit().
+  // Deliberately always a plain update() on this one entry, never routed
+  // through updateOccurrence's "this vs future" scope: a schedule change for
+  // one occurrence of a recurring series should never cascade its literal
+  // dayKey/startMin onto every future occurrence too (see updateOccurrence's
+  // own comment on why it only ever touches descriptive fields). Moving
+  // where a whole series happens next is still Triage/Plan's job, unchanged.
+  async function handleDateChange(value: string): Promise<void> {
+    if (!value) return; // the date field can't itself go empty — pick "no time" for that
+    await update(entry.id, { dayKey: value });
+  }
+
+  async function handleTimeChange(value: string): Promise<void> {
+    const startMin = timeInputToMinutes(value);
+    const changes: Partial<Entry> = { startMin };
+    // An unscheduled task (no dayKey yet) that gets a time picked before a
+    // date needs one anyway — startMin with no dayKey is invisible everywhere
+    // (Today's grid keys off dayKey first), so default it to today rather
+    // than silently storing a time nothing will ever show.
+    if (startMin != null && !entry.dayKey) changes.dayKey = todayKey();
+    await update(entry.id, changes);
+  }
+
   return (
     <div className="flex max-h-[85vh] flex-col gap-4 overflow-y-auto p-4">
       <h2 className="text-heading text-paper">Edit task</h2>
@@ -96,6 +105,33 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
         onChange={(e) => setTitle(e.target.value)}
         className="min-h-[44px] rounded border border-rule bg-void px-3 text-title text-paper"
       />
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">When</span>
+        <div className="flex gap-2">
+          <input
+            type="date"
+            value={entry.dayKey ?? ''}
+            onChange={(e) => void handleDateChange(e.target.value)}
+            className="tabular-nums min-h-[44px] flex-1 rounded border border-rule bg-void px-3 text-title text-paper"
+          />
+          <input
+            type="time"
+            value={minutesToTimeInput(entry.startMin)}
+            onChange={(e) => void handleTimeChange(e.target.value)}
+            className="tabular-nums min-h-[44px] w-[124px] rounded border border-rule bg-void px-3 text-title text-paper"
+          />
+        </div>
+        {entry.startMin != null && (
+          <button
+            type="button"
+            onClick={() => void handleTimeChange('')}
+            className="min-h-[44px] self-start text-title text-muted underline"
+          >
+            No time — Unscheduled
+          </button>
+        )}
+      </div>
 
       <div className="flex flex-col gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Priority</span>
@@ -221,9 +257,10 @@ export default function EntrySheet({ entry, onClose }: EntrySheetProps) {
         <button
           type="button"
           onClick={handleSave}
-          className="min-h-[44px] rounded bg-signal text-title font-medium text-void"
+          disabled={repeatInvalid}
+          className="min-h-[44px] rounded bg-signal text-title font-medium text-void disabled:opacity-40"
         >
-          Save
+          {repeatInvalid ? 'Pick a day to repeat on' : 'Save'}
         </button>
       )}
 
