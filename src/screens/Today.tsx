@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import BottomNav from '../components/BottomNav';
@@ -24,6 +24,12 @@ import { layoutDay } from '../lib/layout';
 import type { Entry } from '../data/types';
 
 const BACKUP_NAG_DAYS = 14;
+
+// Stable fallback so entries/backlog keep the same reference across renders
+// while their query is still loading, not a fresh `[]` every time — anything
+// downstream that memoizes or keys off of them (allEntries below) depends on
+// that stability.
+const EMPTY_ENTRIES: Entry[] = [];
 
 // A day-start hour shifts which calendar hour opens the grid (e.g. 4am instead of
 // midnight) — see CLAUDE.md §7. No Settings UI exists yet to change it (Phase 7),
@@ -104,7 +110,7 @@ export default function Today() {
   // — collapsing them would flash the empty state's "add the first thing" CTA
   // before the real query resolves.
   const rawEntries = useLiveQuery(() => getByDay(today), [today]);
-  const entries = rawEntries ?? [];
+  const entries = rawEntries ?? EMPTY_ENTRIES;
 
   // Tasks with no dayKey at all — SPEC.md: "An 'Unscheduled' list below [the
   // grid]", and Phase 5's own worked example ("call bank" -> unscheduled task,
@@ -115,13 +121,21 @@ export default function Today() {
   // "0 remaining" branches below would win outright, and the task is findable
   // only via Notes' global search. This was a real bug, not by design.
   const rawBacklog = useLiveQuery(() => getUnscheduled(), []);
-  const backlog = rawBacklog ?? [];
+  const backlog = rawBacklog ?? EMPTY_ENTRIES;
   const isLoading = rawEntries === undefined || rawBacklog === undefined;
 
   // Both queries feed the same screen — everything below (the remaining
   // count, the empty state, the filter bar's tag list, subtask progress)
   // should see backlog tasks exactly like today's own entries do.
-  const allEntries = entries.concat(backlog);
+  // Memoized on [entries, backlog], not recomputed on every render: `entries`
+  // and `backlog` are stable references between actual DB changes (each
+  // comes from its own useLiveQuery), but .concat() always returns a new
+  // array. That new array was going straight into another useLiveQuery's
+  // deps below — a fresh reference every render defeats that hook's
+  // memoization and re-subscribes on every render, and each subscription's
+  // resulting Map (also a new reference) forces another render, which builds
+  // another new `allEntries`, forever. This was a real, tab-freezing bug.
+  const allEntries = useMemo(() => entries.concat(backlog), [entries, backlog]);
 
   // Reminders + the ongoing summary (PROMPTS.md Phase 8, #4 #5) — resynced on
   // every write to today's entries, on the FULL day regardless of the
