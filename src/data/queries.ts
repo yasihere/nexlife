@@ -93,6 +93,20 @@ export async function getByDayRange(fromDayKey: string, toDayKey: string): Promi
 }
 
 /**
+ * Money/health logs dated within [fromDayKey, toDayKey] — Review's weekly
+ * money fact needs an arbitrary past week's logs, not the "today"-relative
+ * window logAggregation.ts's own helpers assume. Same index, same shape as
+ * getByDayRange, just 'log' instead of 'task'.
+ */
+export async function getLogsByDayRange(fromDayKey: string, toDayKey: string): Promise<Entry[]> {
+  return db.entries
+    .where('[type+dayKey]')
+    .between(['log', fromDayKey], ['log', toDayKey], true, true)
+    .filter((e) => !e.deletedAt)
+    .toArray();
+}
+
+/**
  * Tasks with no dayKey at all. Not reachable via the [type+dayKey] index (a
  * missing dayKey excludes the record from it entirely), so this is a
  * full-collection filter — acceptable at the 10,000-entry budget since it isn't

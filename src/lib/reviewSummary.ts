@@ -8,10 +8,19 @@ import { countByDay, type DayCount } from './weekAggregation';
 import type { Entry } from '../data/types';
 
 export interface ReviewData {
-  /** Exactly 5 — one per requested fact. */
+  /** Raw counts, for the stat pair at the top of the screen — the sentences
+   *  below restate these in words, but a UI wants the number on its own too. */
+  completedCount: number;
+  droppedCount: number;
+  /** The 5 sentences PROMPTS.md's Phase 12 gate asks for, plus a 6th only
+   *  when the reviewed week actually has money logged — still one honest
+   *  fact per sentence, never a dashboard, just not silent about spending
+   *  when spending happened. */
   sentences: string[];
-  /** For the one supplementary chart — active (non-dropped) tasks per day. */
+  /** For the week chart — active (non-dropped) tasks per day. */
   dayCounts: DayCount[];
+  busiestDayKey: string;
+  emptiestDayKey: string;
 }
 
 function weekdayName(key: string): string {
@@ -22,12 +31,28 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
+function formatINR(amount: number): string {
+  return `₹${Math.round(amount).toLocaleString('en-IN')}`;
+}
+
+function sumMoney(logs: Entry[]): number {
+  return logs.filter((e) => e.unit === 'INR').reduce((sum, e) => sum + (e.amount ?? 0), 0);
+}
+
 /**
  * `weekTasks` — every task dated within the reviewed week (see
  * getByDayRange), dropped and completed both included. `days` — that week's
- * 7 dayKeys, oldest first.
+ * 7 dayKeys, oldest first. `weekLogs`/`priorWeekLogs` — money/health logs for
+ * the reviewed week and the one before it (see getLogsByDayRange); omit both
+ * to skip the money fact entirely (Review.tsx always has them, but nothing
+ * here requires it).
  */
-export function buildReview(weekTasks: Entry[], days: string[]): ReviewData {
+export function buildReview(
+  weekTasks: Entry[],
+  days: string[],
+  weekLogs: Entry[] = [],
+  priorWeekLogs: Entry[] = []
+): ReviewData {
   const dropped = weekTasks.filter((e) => !!e.droppedAt);
   const completed = weekTasks.filter((e) => !!e.completedAt);
   const active = weekTasks.filter((e) => !e.droppedAt);
@@ -80,5 +105,29 @@ export function buildReview(weekTasks: Entry[], days: string[]): ReviewData {
         : `On average, ${(avgHours / 24).toFixed(1)} days passed between scheduling something and doing it.`;
   }
 
-  return { sentences: [s1, s2, s3, s4, s5], dayCounts };
+  const sentences = [s1, s2, s3, s4, s5];
+
+  // 6. money, only when the reviewed week (or the one before it, for the
+  // comparison to make sense) actually had any logged — a silent "₹0 spent"
+  // week isn't a fact worth a sentence.
+  const spent = sumMoney(weekLogs);
+  const spentPrior = sumMoney(priorWeekLogs);
+  if (spent > 0 || spentPrior > 0) {
+    const delta = spent - spentPrior;
+    if (delta === 0) {
+      sentences.push(`${formatINR(spent)} spent this week, the same as the week before.`);
+    } else {
+      const direction = delta > 0 ? 'more' : 'less';
+      sentences.push(`${formatINR(spent)} spent this week, ${formatINR(Math.abs(delta))} ${direction} than the week before.`);
+    }
+  }
+
+  return {
+    completedCount: completed.length,
+    droppedCount: dropped.length,
+    sentences,
+    dayCounts,
+    busiestDayKey: busiest.dayKey,
+    emptiestDayKey: emptiest.dayKey,
+  };
 }
