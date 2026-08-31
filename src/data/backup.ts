@@ -24,7 +24,14 @@ export interface BackupFile {
 // list isn't updated too (exactly what caught this array missing 'goal' when
 // Goals was added: a plain array assigned to EntryType[] type-checks fine
 // even when incomplete, since a subset is still a valid EntryType[]).
-const ENTRY_TYPE_SET: Record<EntryType, true> = { task: true, habit: true, log: true, note: true, goal: true };
+const ENTRY_TYPE_SET: Record<EntryType, true> = {
+  task: true,
+  habit: true,
+  log: true,
+  note: true,
+  goal: true,
+  budget: true,
+};
 
 function isValidEntry(x: unknown): x is Entry {
   if (typeof x !== 'object' || x === null) return false;

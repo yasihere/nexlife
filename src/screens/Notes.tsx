@@ -14,6 +14,7 @@ const TYPE_LABEL: Record<Entry['type'], string> = {
   log: 'Log',
   note: 'Note',
   goal: 'Goal',
+  budget: 'Budget',
 };
 
 /**

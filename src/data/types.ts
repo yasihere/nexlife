@@ -2,7 +2,7 @@
 // One entity, five lenses: tasks, habits, logs and notes are the same Entry shape
 // with different fields populated. See SPEC.md "The architectural bet".
 
-export type EntryType = 'task' | 'habit' | 'log' | 'note' | 'goal';
+export type EntryType = 'task' | 'habit' | 'log' | 'note' | 'goal' | 'budget';
 
 /** week/month/year cover the recurring planning horizons; longterm is the
  *  ~5-year band SPEC's "five lenses" line never named individually, and
@@ -39,6 +39,13 @@ export interface Entry {
   // number toward one `target` over its whole life. `unit` is reused as the
   // goal's free-text label ("books", "kg", "₹") — it means the same thing
   // there as it already does for logs.
+  //
+  // budgets (Phase 13) reuse `target` too, as the monthly cap in INR — but
+  // unlike a goal, a budget never stores `progress`: "spent so far" is always
+  // recomputed live from this month's `log` entries carrying the same tag
+  // (src/lib/budgetAggregation.ts), so there is nothing to roll over when the
+  // month turns. A budget's one tag lives in `tags` below, same field money
+  // logs already tag themselves with.
   period?: GoalPeriod;
   target?: number;
   progress?: number;
@@ -96,4 +103,8 @@ export function isNote(e: Entry): boolean {
 
 export function isGoal(e: Entry): boolean {
   return e.type === 'goal';
+}
+
+export function isBudget(e: Entry): boolean {
+  return e.type === 'budget';
 }

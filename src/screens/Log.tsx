@@ -1,12 +1,17 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getAllLogs } from '../data/queries';
+import { getAllBudgets, getAllLogs } from '../data/queries';
 import { softDelete } from '../data/entries';
 import { groupLogsByUnit, moneyByTag, topGrowingTags, formatLogAmount } from '../lib/logAggregation';
+import { allBudgetStatuses } from '../lib/budgetAggregation';
 import { todayKey } from '../lib/time';
 import { replace } from '../lib/nav';
 import { setPendingAddTask } from '../lib/launchIntent';
 import Sparkline from '../components/Sparkline';
+import BudgetRow from '../components/BudgetRow';
+import BudgetForm from '../components/BudgetForm';
 import BottomNav from '../components/BottomNav';
+import Sheet from '../components/Sheet';
 import EmptyState from '../components/EmptyState';
 import type { Entry } from '../data/types';
 
@@ -30,10 +35,21 @@ function goAddTask(): void {
  *  edit UI, just tap-to-drop for fixing a mis-logged entry. */
 export default function Log() {
   const today = todayKey();
+  const [budgetSheetEntry, setBudgetSheetEntry] = useState<Entry | null>(null);
+  const [addingBudget, setAddingBudget] = useState(false);
   const logs = useLiveQuery(() => getAllLogs()) ?? [];
+  const budgets = useLiveQuery(() => getAllBudgets()) ?? [];
   const units = groupLogsByUnit(logs, today);
   const tagTotals = moneyByTag(logs, today);
   const growing = topGrowingTags(logs, today);
+  const budgetStatuses = allBudgetStatuses(budgets, logs, today);
+  const budgetsById = new Map(budgets.map((b) => [b.id, b]));
+  const moneyTags = Array.from(new Set(logs.filter((e) => e.unit === 'INR').flatMap((e) => e.tags))).sort();
+
+  function closeBudgetSheet(): void {
+    setBudgetSheetEntry(null);
+    setAddingBudget(false);
+  }
 
   function recentFor(unit: string): Entry[] {
     return logs
@@ -56,8 +72,33 @@ export default function Log() {
         />
       ) : (
         <div className="flex-1 overflow-y-auto px-4">
+          <section className="flex flex-col gap-2 border-b border-rule py-4">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Budgets</span>
+            {budgetStatuses.length === 0 ? (
+              <p className="text-title text-muted">No budgets set. Cap a tag you already spend against.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {budgetStatuses.map((status) => (
+                  <li key={status.id}>
+                    <BudgetRow
+                      status={status}
+                      onOpen={() => setBudgetSheetEntry(budgetsById.get(status.id) ?? null)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={() => setAddingBudget(true)}
+              className="min-h-[44px] rounded border border-rule text-title text-muted"
+            >
+              Add budget
+            </button>
+          </section>
+
           {tagTotals.length > 0 && (
-            <section className="flex flex-col gap-2 border-b border-rule pb-4">
+            <section className="flex flex-col gap-2 border-b border-rule py-4">
               <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
                 Money — this month
               </span>
@@ -122,6 +163,15 @@ export default function Log() {
       )}
 
       <BottomNav />
+
+      <Sheet open={addingBudget || !!budgetSheetEntry} onClose={closeBudgetSheet}>
+        <BudgetForm
+          entry={budgetSheetEntry ?? undefined}
+          knownTags={moneyTags}
+          otherBudgets={budgets.filter((b) => b.id !== budgetSheetEntry?.id)}
+          onClose={closeBudgetSheet}
+        />
+      </Sheet>
     </div>
   );
 }

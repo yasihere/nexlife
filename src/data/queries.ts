@@ -188,6 +188,19 @@ export async function getAllGoals(): Promise<Entry[]> {
     .toArray();
 }
 
+/**
+ * Every active budget (deleted excluded — no "dropped" state; deleting a
+ * budget just softDeletes it, there's nothing to preserve for review the way
+ * an abandoned goal is). Same reasoning and same index reuse as getAllGoals.
+ */
+export async function getAllBudgets(): Promise<Entry[]> {
+  return db.entries
+    .where('[type+dayKey]')
+    .between(['budget', Dexie.minKey], ['budget', Dexie.maxKey])
+    .filter((e) => !e.deletedAt)
+    .toArray();
+}
+
 /** Notes not attached to anything else — the Notes screen's default list. */
 export async function getStandaloneNotes(): Promise<Entry[]> {
   return db.entries.filter((e) => e.type === 'note' && !e.parentId && !e.deletedAt).toArray();

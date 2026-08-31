@@ -269,6 +269,29 @@ export async function seed(): Promise<void> {
     });
   }
 
+  // Budgets (Phase 13) against tags MONEY_TAGS already seeded above — one
+  // already over cap, one on pace to go over, one comfortably under, so all
+  // three BudgetRow states are visible without spending a real day using it.
+  const BUDGETS: { tag: string; cap: number }[] = [
+    { tag: 'food', cap: 3000 },
+    { tag: 'transport', cap: 4000 },
+    { tag: 'bills', cap: 10000 },
+  ];
+  for (const b of BUDGETS) {
+    rows.push({
+      id: crypto.randomUUID(),
+      type: 'budget',
+      title: `#${b.tag} budget`,
+      dayKey: today,
+      tags: [b.tag],
+      target: b.cap,
+      unit: 'INR',
+      priority: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
   await db.entries.bulkAdd(rows);
   // eslint-disable-next-line no-console
   console.log(`Seeded ${rows.length} entries.`);
