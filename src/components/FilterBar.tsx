@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import Sheet from './Sheet';
 import type { Entry } from '../data/types';
 
 export interface Filters {
@@ -25,6 +26,10 @@ export function matchesFilters(entry: Entry, filters: Filters): boolean {
   return true;
 }
 
+function activeCount(filters: Filters): number {
+  return (filters.energy ? 1 : 0) + (filters.timeAvailable != null ? 1 : 0) + filters.tags.length;
+}
+
 interface ToggleProps {
   active: boolean;
   onClick: () => void;
@@ -46,74 +51,117 @@ function Toggle({ active, onClick, children }: ToggleProps) {
   );
 }
 
+interface FilterSectionProps {
+  label: string;
+  children: ReactNode;
+}
+
+function FilterSection({ label, children }: FilterSectionProps) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{label}</span>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
 interface FilterBarProps {
   availableTags: string[];
   filters: Filters;
   onChange: (filters: Filters) => void;
 }
 
-/** Today's filter bar — energy + time-available ("what can I do right now",
- *  the filter that matters) plus simple tag filtering. */
+/**
+ * A single trigger that opens a sheet holding Today's filters, each in its
+ * own clearly labeled section — Energy, Time available, Tags. Previously one
+ * unlabeled, horizontally-scrolling row mixed all three together (an energy
+ * chip like "high" sitting next to an unlabeled #tag chip, with nothing on
+ * screen explaining why a tag was there at all). Collapsed by default: Today
+ * stays calm, filtering is a deliberate action via the trigger, not a
+ * permanent fixture competing with the grid for attention.
+ */
 export default function FilterBar({ availableTags, filters, onChange }: FilterBarProps) {
-  const anyActive = !!filters.energy || filters.timeAvailable != null || filters.tags.length > 0;
+  const [open, setOpen] = useState(false);
+  const count = activeCount(filters);
 
   return (
-    <div className="flex flex-col gap-2 overflow-x-auto px-4 pb-2">
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Energy</span>
-        {(['low', 'med', 'high'] as const).map((level) => (
-          <Toggle
-            key={level}
-            active={filters.energy === level}
-            onClick={() => onChange({ ...filters, energy: filters.energy === level ? null : level })}
-          >
-            {level}
-          </Toggle>
-        ))}
-        <span className="ml-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Time</span>
-        {([15, 30, 60] as const).map((mins) => (
-          <Toggle
-            key={mins}
-            active={filters.timeAvailable === mins}
-            onClick={() =>
-              onChange({ ...filters, timeAvailable: filters.timeAvailable === mins ? null : mins })
-            }
-          >
-            {mins}m
-          </Toggle>
-        ))}
-        {anyActive && (
-          <button
-            type="button"
-            onClick={() => onChange(EMPTY_FILTERS)}
-            className="ml-1 shrink-0 text-[11px] text-muted underline"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={
+          'flex min-h-[44px] shrink-0 items-center gap-1.5 rounded border px-3 text-[11px] font-semibold ' +
+          'uppercase tracking-[0.08em] ' +
+          (count > 0 ? 'border-paper text-paper' : 'border-rule text-muted')
+        }
+      >
+        Filters{count > 0 ? ` · ${count}` : ''}
+      </button>
 
-      {availableTags.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {availableTags.map((tag) => {
-            const active = filters.tags.includes(tag);
-            return (
+      <Sheet open={open} onClose={() => setOpen(false)}>
+        <div className="flex max-h-[85vh] flex-col gap-5 overflow-y-auto p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-heading text-paper">Filters</h2>
+            {count > 0 && (
+              <button
+                type="button"
+                onClick={() => onChange(EMPTY_FILTERS)}
+                className="min-h-[44px] text-title text-muted underline"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          <FilterSection label="Energy">
+            {(['low', 'med', 'high'] as const).map((level) => (
               <Toggle
-                key={tag}
-                active={active}
+                key={level}
+                active={filters.energy === level}
+                onClick={() => onChange({ ...filters, energy: filters.energy === level ? null : level })}
+              >
+                {level}
+              </Toggle>
+            ))}
+          </FilterSection>
+
+          <FilterSection label="Time available">
+            {([15, 30, 60] as const).map((mins) => (
+              <Toggle
+                key={mins}
+                active={filters.timeAvailable === mins}
                 onClick={() =>
-                  onChange({
-                    ...filters,
-                    tags: active ? filters.tags.filter((t) => t !== tag) : [...filters.tags, tag],
-                  })
+                  onChange({ ...filters, timeAvailable: filters.timeAvailable === mins ? null : mins })
                 }
               >
-                #{tag}
+                {mins}m
               </Toggle>
-            );
-          })}
+            ))}
+          </FilterSection>
+
+          {availableTags.length > 0 && (
+            <FilterSection label="Tags">
+              {availableTags.map((tag) => {
+                const active = filters.tags.includes(tag);
+                return (
+                  <Toggle
+                    key={tag}
+                    active={active}
+                    onClick={() =>
+                      onChange({
+                        ...filters,
+                        tags: active ? filters.tags.filter((t) => t !== tag) : [...filters.tags, tag],
+                      })
+                    }
+                  >
+                    #{tag}
+                  </Toggle>
+                );
+              })}
+            </FilterSection>
+          )}
         </div>
-      )}
-    </div>
+      </Sheet>
+    </>
   );
 }

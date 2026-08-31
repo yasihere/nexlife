@@ -174,7 +174,12 @@ export default function Today() {
           <h1 className="text-heading text-paper">{format(nowDate, 'EEEE, MMM d')}</h1>
           {import.meta.env.DEV && <DevTools />}
         </div>
-        <p className="tabular-nums mt-1 text-sm text-muted">{remaining} remaining</p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="tabular-nums text-sm text-muted">{remaining} remaining</p>
+          {!nothingToday && !isLoading && (
+            <FilterBar availableTags={availableTags} filters={filters} onChange={setFilters} />
+          )}
+        </div>
         <div className="mt-2 h-px w-full bg-rule">
           <div className="h-px bg-paper/60" style={{ width: `${progress * 100}%` }} />
         </div>
@@ -182,10 +187,6 @@ export default function Today() {
 
       {showBackupNag && (
         <BackupNag daysSinceExport={daysSinceExport} onDismiss={() => setNagDismissed(true)} />
-      )}
-
-      {!nothingToday && !isLoading && (
-        <FilterBar availableTags={availableTags} filters={filters} onChange={setFilters} />
       )}
 
       {isLoading ? (
