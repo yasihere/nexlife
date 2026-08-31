@@ -6,6 +6,17 @@ import { db } from './db';
 import type { Entry, EntryType } from './types';
 
 /**
+ * Manual-order lists (getUnscheduled, getStandaloneNotes, and Today.tsx's
+ * merged Unscheduled section): sortIndex when a drag has set one, createdAt
+ * otherwise — see types.ts's sortIndex comment. Exported because Today.tsx
+ * merges getByDay's startMin-less entries with getUnscheduled's backlog into
+ * one draggable list and needs the same ordering applied across both.
+ */
+export function sortByManualOrder(rows: Entry[]): Entry[] {
+  return rows.sort((a, b) => (a.sortIndex ?? a.createdAt) - (b.sortIndex ?? b.createdAt));
+}
+
+/**
  * Today's tasks scheduled on `dayKey` — completed entries included, since
  * Today renders their struck-through state rather than hiding them. Dropped
  * and soft-deleted entries are excluded. Task-only: harmless to omit before
@@ -88,9 +99,10 @@ export async function getByDayRange(fromDayKey: string, toDayKey: string): Promi
  * the hot path the way getByDay is.
  */
 export async function getUnscheduled(): Promise<Entry[]> {
-  return db.entries
+  const rows = await db.entries
     .filter((e) => e.type === 'task' && !e.dayKey && !e.droppedAt && !e.deletedAt)
     .toArray();
+  return sortByManualOrder(rows);
 }
 
 /** A single entry by id — for a live-updating detail view (e.g. EntrySheet). */
@@ -218,7 +230,8 @@ export async function getByTag(tag: string): Promise<Entry[]> {
 
 /** Notes not attached to anything else — the Notes screen's default list. */
 export async function getStandaloneNotes(): Promise<Entry[]> {
-  return db.entries.filter((e) => e.type === 'note' && !e.parentId && !e.deletedAt).toArray();
+  const rows = await db.entries.filter((e) => e.type === 'note' && !e.parentId && !e.deletedAt).toArray();
+  return sortByManualOrder(rows);
 }
 
 /** Every entry, deleted ones included — a faithful snapshot for backup export. */

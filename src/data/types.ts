@@ -51,6 +51,11 @@ export interface Entry {
   progress?: number;
 
   // organisation
+  /** Manual order within a drag-reordered list (Today's Unscheduled, Notes).
+   *  Sort-only — never queried, so no Dexie index and no version bump. Unset
+   *  until the first drag in that list; sorting falls back to `createdAt`
+   *  until then, so a fresh list already has a stable, sensible order. */
+  sortIndex?: number;
   tags: string[];
   priority: 0 | 1 | 2 | 3; // 0 none … 3 highest
   energy?: 'low' | 'med' | 'high';

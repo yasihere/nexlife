@@ -11,8 +11,8 @@ import TimeGrid, { ROW_HEIGHT } from '../components/TimeGrid';
 import FilterBar, { EMPTY_FILTERS, matchesFilters, type Filters } from '../components/FilterBar';
 import DevTools from '../components/DevTools';
 import BackupNag from '../components/BackupNag';
-import { getByDay, getById, getChildrenSummaryBatch, getUnscheduled } from '../data/queries';
-import { complete, uncomplete } from '../data/entries';
+import { getByDay, getById, getChildrenSummaryBatch, getUnscheduled, sortByManualOrder } from '../data/queries';
+import { complete, uncomplete, reorder } from '../data/entries';
 import { materializeDueOccurrences } from '../data/series';
 import { getSettings } from '../data/settings';
 import { hapticTick } from '../lib/native';
@@ -138,7 +138,7 @@ export default function Today() {
     new Map<string, { done: number; total: number }>();
 
   const scheduled = entries.filter((e): e is Entry & { startMin: number } => e.startMin != null);
-  const unscheduled = entries.filter((e) => e.startMin == null).concat(backlog);
+  const unscheduled = sortByManualOrder(entries.filter((e) => e.startMin == null).concat(backlog));
   const filteredScheduled = scheduled.filter((e) => matchesFilters(e, filters));
   const filteredUnscheduled = unscheduled.filter((e) => matchesFilters(e, filters));
   const availableTags = Array.from(new Set(allEntries.flatMap((e) => e.tags))).sort();
@@ -220,6 +220,7 @@ export default function Today() {
             childSummaries={childSummaries}
             onToggleComplete={toggleComplete}
             onOpen={(entry) => setEditingEntryId(entry.id)}
+            onReorder={(orderedIds) => void reorder(orderedIds)}
           />
         </div>
       )}

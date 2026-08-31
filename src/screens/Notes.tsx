@@ -1,12 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getSearchableEntries, getStandaloneNotes } from '../data/queries';
-import { create } from '../data/entries';
+import { create, reorder } from '../data/entries';
 import { buildSearchIndex, searchIndex } from '../lib/searchIndex';
+import { useDragReorder } from '../components/useDragReorder';
 import NoteCard from '../components/NoteCard';
+import DragHandle from '../components/DragHandle';
 import BottomNav from '../components/BottomNav';
 import EmptyState from '../components/EmptyState';
 import type { Entry } from '../data/types';
+
+// Drag-reorder measures every row's DOM position up front (useDragReorder.ts)
+// — same safety bound UnscheduledList.tsx uses, so that stays O(100) too.
+const DRAG_THRESHOLD = 100;
 
 const TYPE_LABEL: Record<Entry['type'], string> = {
   task: 'Task',
@@ -40,6 +46,12 @@ export default function Notes() {
   }
 
   const showing = results ?? standaloneNotes;
+  const draggable = !results && standaloneNotes.length <= DRAG_THRESHOLD;
+  const { draggingId, offsetY, registerRow, handlePointerDown, handlePointerMove, handlePointerUp } =
+    useDragReorder({
+      ids: standaloneNotes.map((n) => n.id),
+      onDrop: (orderedIds) => void reorder(orderedIds),
+    });
 
   return (
     <div className="mx-auto flex h-dvh max-w-[430px] flex-col bg-void">
@@ -69,17 +81,35 @@ export default function Notes() {
         ) : (
           <ul className="flex flex-col gap-3 pb-4">
             {showing.map((entry) => (
-              <li key={entry.id}>
-                {entry.type === 'note' ? (
-                  <NoteCard note={entry} />
-                ) : (
-                  <div className="rounded border border-rule p-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
-                      {TYPE_LABEL[entry.type]}
-                    </span>
-                    <p className="text-title text-paper">{entry.title}</p>
-                  </div>
+              <li
+                key={entry.id}
+                ref={draggable ? (el) => registerRow(entry.id, el) : undefined}
+                className="flex items-start gap-1"
+                style={
+                  draggable && draggingId === entry.id
+                    ? { transform: `translateY(${offsetY}px)`, position: 'relative', zIndex: 10 }
+                    : undefined
+                }
+              >
+                {draggable && (
+                  <DragHandle
+                    onPointerDown={(e) => handlePointerDown(entry.id, e)}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                  />
                 )}
+                <div className="min-w-0 flex-1">
+                  {entry.type === 'note' ? (
+                    <NoteCard note={entry} />
+                  ) : (
+                    <div className="rounded border border-rule p-3">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+                        {TYPE_LABEL[entry.type]}
+                      </span>
+                      <p className="text-title text-paper">{entry.title}</p>
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

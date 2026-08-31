@@ -52,6 +52,25 @@ export async function update(id: string, changes: Partial<Entry>): Promise<void>
   });
 }
 
+/**
+ * Persists a drag-reordered list: `orderedIds` in the exact order they should
+ * now sort in (see types.ts's sortIndex, queries.ts's sortByManualOrder).
+ * Rewrites every row's sortIndex as its plain array index — simplest correct
+ * approach at personal-scale list sizes (tens of items, not thousands), and
+ * avoids the precision creep a fractional-indexing scheme accumulates over
+ * many reorders. One transaction so a mid-write failure can't half-apply.
+ */
+export async function reorder(orderedIds: string[]): Promise<void> {
+  const now = Date.now();
+  await db.transaction('rw', db.entries, async () => {
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        db.entries.where('id').equals(id).modify({ sortIndex: index, updatedAt: now })
+      )
+    );
+  });
+}
+
 export async function complete(id: string): Promise<void> {
   await update(id, { completedAt: Date.now() });
 }
