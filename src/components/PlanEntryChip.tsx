@@ -1,8 +1,13 @@
 import { useRef, type PointerEvent } from 'react';
+import { priorityBorder } from './EntryRow';
 import type { Entry } from '../data/types';
 
 interface PlanEntryChipProps {
   entry: Entry;
+  /** Scheduled before today and not done — the one other place `--signal`
+   *  is allowed (CLAUDE.md §5), same as Today's own EntryRow. Wins over the
+   *  plain priority border exactly the way EntryRow already resolves that. */
+  overdue: boolean;
   /** Fires repeatedly while dragging, with the current pointer position; null entry = drag ended. */
   onDragUpdate: (entry: Entry | null, x: number, y: number) => void;
   onDrop: (entry: Entry, x: number, y: number) => void;
@@ -17,7 +22,7 @@ const MOVE_CANCEL_PX = 10;
  * The same disambiguation technique as useLongPress: a plain tap or a scroll
  * gesture must not accidentally start a drag.
  */
-export default function PlanEntryChip({ entry, onDragUpdate, onDrop }: PlanEntryChipProps) {
+export default function PlanEntryChip({ entry, overdue, onDragUpdate, onDrop }: PlanEntryChipProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragging = useRef(false);
   const start = useRef({ x: 0, y: 0 });
@@ -74,8 +79,13 @@ export default function PlanEntryChip({ entry, onDragUpdate, onDrop }: PlanEntry
         WebkitUserSelect: 'none',
         opacity: entry.completedAt ? 0.35 : 1,
         textDecoration: entry.completedAt ? 'line-through' : 'none',
+        borderLeft: overdue && !entry.completedAt ? '2px solid var(--signal)' : priorityBorder(entry.priority),
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
       }}
-      className="truncate rounded bg-panel px-2 py-1 text-[11px] text-paper"
+      className="rounded bg-panel px-1.5 py-1 text-[11px] leading-snug text-paper"
     >
       {entry.title}
     </div>

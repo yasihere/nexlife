@@ -87,6 +87,7 @@ export default function Plan() {
               day={day}
               entries={activeTasks.filter((e) => e.dayKey === day)}
               isToday={day === today}
+              isPast={day < today}
               isDropTarget={day === dropTargetDay}
               columnRef={registerColumn(day)}
               onDragUpdate={handleDragUpdate}
@@ -99,7 +100,7 @@ export default function Plan() {
       {ghost && (
         <div
           style={{ position: 'fixed', left: ghost.x - 48, top: ghost.y - 16, zIndex: 50, pointerEvents: 'none' }}
-          className="max-w-[96px] truncate rounded bg-panel px-2 py-1 text-[11px] text-paper opacity-90 shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+          className="max-w-[96px] truncate rounded border border-rule bg-panel px-2 py-1 text-[11px] text-paper"
         >
           {ghost.entry.title}
         </div>

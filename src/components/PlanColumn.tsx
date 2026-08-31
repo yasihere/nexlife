@@ -7,50 +7,71 @@ interface PlanColumnProps {
   day: string;
   entries: Entry[];
   isToday: boolean;
+  isPast: boolean;
   isDropTarget: boolean;
   columnRef: (el: HTMLDivElement | null) => void;
   onDragUpdate: (entry: Entry | null, x: number, y: number) => void;
   onDrop: (entry: Entry, x: number, y: number) => void;
 }
 
-const MAX_BAR_HEIGHT = 32;
-const BAR_UNIT = 6; // px per entry, capped — a density block, not a precise chart
-
-/** One day of Plan's week — a density bar, a count, and its entries
- *  (PROMPTS.md Phase 12, #1). Read-mostly: no tap-to-edit here. */
+/**
+ * One day of Plan's week — a calendar-cell header (weekday, day number) and
+ * its entries, weighted by priority/overdue exactly as Today's own grid does
+ * (EntryRow's priorityBorder, --signal's overdue use) so the two screens
+ * read as one visual language rather than two different apps. No separate
+ * density bar/count: the chip stack already shows how full a day is — a bar
+ * restating that wouldn't earn its space (same call Review's WeekBars makes
+ * for its own chart). Read-mostly: no tap-to-edit here (PROMPTS.md Phase 12).
+ */
 export default function PlanColumn({
   day,
   entries,
   isToday,
+  isPast,
   isDropTarget,
   columnRef,
   onDragUpdate,
   onDrop,
 }: PlanColumnProps) {
-  const barHeight = Math.min(MAX_BAR_HEIGHT, entries.length * BAR_UNIT);
+  const date = parseDayKey(day);
 
   return (
     <div
       ref={columnRef}
-      className="flex min-h-[120px] flex-1 flex-col gap-1 rounded p-1"
-      style={{ outline: isDropTarget ? '1px solid var(--muted)' : 'none' }}
+      className="flex min-h-[140px] flex-1 flex-col gap-1.5 rounded p-1"
+      style={{
+        backgroundColor: isToday ? 'var(--panel)' : 'transparent',
+        outline: isDropTarget ? '1px solid var(--muted)' : 'none',
+      }}
     >
-      <span
-        className={
-          'text-center text-[11px] font-semibold uppercase tracking-[0.08em] ' +
-          (isToday ? 'text-paper' : 'text-muted')
-        }
+      <div
+        className="flex flex-col items-center gap-0.5 border-b pb-1.5"
+        style={{ borderColor: isToday ? 'var(--paper)' : 'var(--rule)' }}
       >
-        {format(parseDayKey(day), 'EEE d')}
-      </span>
-      <div className="flex h-8 items-end justify-center">
-        <div className="w-4 rounded-sm bg-rule" style={{ height: barHeight }} />
+        <span
+          className={
+            'text-center text-[10px] uppercase tracking-[0.08em] ' +
+            (isToday ? 'font-bold text-paper' : 'font-semibold text-muted')
+          }
+        >
+          {format(date, 'EEE')}
+        </span>
+        <span
+          className={'tabular-nums text-center text-[15px] leading-none ' + (isToday ? 'font-bold text-paper' : 'font-medium text-muted')}
+        >
+          {format(date, 'd')}
+        </span>
       </div>
-      <span className="tabular-nums text-center text-[11px] text-muted">{entries.length}</span>
 
       <div className="flex flex-col gap-1">
         {entries.map((entry) => (
-          <PlanEntryChip key={entry.id} entry={entry} onDragUpdate={onDragUpdate} onDrop={onDrop} />
+          <PlanEntryChip
+            key={entry.id}
+            entry={entry}
+            overdue={isPast && !entry.completedAt}
+            onDragUpdate={onDragUpdate}
+            onDrop={onDrop}
+          />
         ))}
       </div>
     </div>
