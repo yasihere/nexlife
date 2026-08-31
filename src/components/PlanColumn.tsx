@@ -12,6 +12,11 @@ interface PlanColumnProps {
   columnRef: (el: HTMLDivElement | null) => void;
   onDragUpdate: (entry: Entry | null, x: number, y: number) => void;
   onDrop: (entry: Entry, x: number, y: number) => void;
+  /** False in Plan's single-day view, where the screen's own header already
+   *  names the day — repeating a mini weekday/date header on top of that
+   *  would be redundant. True (the default) for the week grid, where each
+   *  column needs its own label. */
+  showHeader?: boolean;
 }
 
 /**
@@ -32,6 +37,7 @@ export default function PlanColumn({
   columnRef,
   onDragUpdate,
   onDrop,
+  showHeader = true,
 }: PlanColumnProps) {
   const date = parseDayKey(day);
 
@@ -44,24 +50,26 @@ export default function PlanColumn({
         outline: isDropTarget ? '1px solid var(--muted)' : 'none',
       }}
     >
-      <div
-        className="flex flex-col items-center gap-0.5 border-b pb-1.5"
-        style={{ borderColor: isToday ? 'var(--paper)' : 'var(--rule)' }}
-      >
-        <span
-          className={
-            'text-center text-[10px] uppercase tracking-[0.08em] ' +
-            (isToday ? 'font-bold text-paper' : 'font-semibold text-muted')
-          }
+      {showHeader && (
+        <div
+          className="flex flex-col items-center gap-0.5 border-b pb-1.5"
+          style={{ borderColor: isToday ? 'var(--paper)' : 'var(--rule)' }}
         >
-          {format(date, 'EEE')}
-        </span>
-        <span
-          className={'tabular-nums text-center text-[15px] leading-none ' + (isToday ? 'font-bold text-paper' : 'font-medium text-muted')}
-        >
-          {format(date, 'd')}
-        </span>
-      </div>
+          <span
+            className={
+              'text-center text-[10px] uppercase tracking-[0.08em] ' +
+              (isToday ? 'font-bold text-paper' : 'font-semibold text-muted')
+            }
+          >
+            {format(date, 'EEE')}
+          </span>
+          <span
+            className={'tabular-nums text-center text-[15px] leading-none ' + (isToday ? 'font-bold text-paper' : 'font-medium text-muted')}
+          >
+            {format(date, 'd')}
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1">
         {entries.map((entry) => (

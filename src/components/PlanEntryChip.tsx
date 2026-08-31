@@ -80,10 +80,6 @@ export default function PlanEntryChip({ entry, overdue, onDragUpdate, onDrop }: 
         opacity: entry.completedAt ? 0.35 : 1,
         textDecoration: entry.completedAt ? 'line-through' : 'none',
         borderLeft: overdue && !entry.completedAt ? '2px solid var(--signal)' : priorityBorder(entry.priority),
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
       }}
       className="rounded bg-panel px-1.5 py-1 text-[11px] leading-snug text-paper"
     >
