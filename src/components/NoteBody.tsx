@@ -5,6 +5,13 @@ interface NoteBodyProps {
   body: string;
   /** Omit to render read-only (no interactive checkboxes). */
   onToggleCheckbox?: (lineIndex: number) => void;
+  /** Render only the first N lines (NoteCard's collapsed preview) — omit for
+   *  the full body. One raw line is exactly one block (parseNoteBody splits
+   *  on '\n' 1:1), so this lines up with what the note's own author typed,
+   *  not a CSS line-clamp guess — simpler and correct across headings,
+   *  checkboxes and paragraphs alike, which a clamp on mixed block content
+   *  wouldn't reliably cap the same way. */
+  maxLines?: number;
 }
 
 function Inline({ text }: { text: string }) {
@@ -26,8 +33,9 @@ const HEADING_CLASS: Record<1 | 2 | 3, string> = {
 /** Renders the minimal note syntax — headings, **bold**, and tappable
  *  checkboxes (PROMPTS.md Phase 11). Completion reads the same as everywhere
  *  else in the app: opacity + strikethrough, never colour. */
-export default function NoteBody({ body, onToggleCheckbox }: NoteBodyProps) {
-  const blocks = parseNoteBody(body);
+export default function NoteBody({ body, onToggleCheckbox, maxLines }: NoteBodyProps) {
+  const allBlocks = parseNoteBody(body);
+  const blocks = maxLines != null ? allBlocks.slice(0, maxLines) : allBlocks;
 
   return (
     <div className="flex flex-col gap-1">
